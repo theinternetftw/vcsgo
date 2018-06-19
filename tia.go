@@ -139,16 +139,16 @@ func getCol(color, luma byte) (byte, byte, byte) {
 
 func (tia *tia) getPlayfieldBit() bool {
 	pfX := tia.ScreenX >> 2
-	if pfX >= 20 {
-		pfX -= 20
-	}
-	if pfX < 0 || pfX >= 20 {
+	if pfX < 0 || pfX >= 40 {
 		return false
 	}
-	if tia.PlayfieldReflect {
-		pfX = 19 - pfX
+	if pfX >= 20 {
+		pfX -= 20
+		if tia.PlayfieldReflect {
+			pfX = 19 - pfX
+		}
 	}
-	return (tia.Playfield & (1 << byte(pfX))) != 0
+	return (tia.Playfield & (1 << byte(19-pfX))) != 0
 }
 
 func (tia *tia) drawColor(color, luma byte) {
