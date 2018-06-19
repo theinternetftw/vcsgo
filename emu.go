@@ -85,5 +85,5 @@ func (emu *emuState) GetCycles() uint64 {
 	return emu.Cycles
 }
 func (emu *emuState) GetCyclesPerSecond() uint64 {
-	return TIACyclesPerSecond
+	return tiaCyclesPerSecond
 }

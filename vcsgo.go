@@ -13,11 +13,11 @@ const (
 )
 
 const (
-	// TIACyclesPerLine = 228
-	// CPUCyclesPerLine = 228/3
-	// LinesPerFrame = 262
-	// FramesPerSecond = 60
-	TIACyclesPerSecond = 228 * 262 * 60
+	// tiaCyclesPerLine = 228
+	// cpuCyclesPerLine = 228/3
+	// linesPerFrame = 262
+	// framesPerSecond = 60
+	tiaCyclesPerSecond = 228 * 262 * 60
 )
 
 type emuState struct {
