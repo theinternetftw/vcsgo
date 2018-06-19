@@ -21,11 +21,9 @@ type tia struct {
 	PlayfieldScoreColorMode bool
 	PlayfieldReflect        bool
 
-	PlayfieldColor byte
-	PlayfieldLuma  byte
+	PlayfieldColorLuma byte
 
-	BGColor byte
-	BGLuma  byte
+	BGColorLuma byte
 
 	DelayGRP0 bool // until P1
 	DelayGRP1 bool // until P0
@@ -46,8 +44,7 @@ type sprite struct {
 	X  byte
 	Vx int8
 
-	Color byte
-	Luma  byte
+	ColorLuma byte
 
 	// only for P0/P1
 	Shape   byte
@@ -131,12 +128,6 @@ func (tia *tia) resetHorizCounter() {
 	tia.InHBlank = false
 }
 
-func getCol(color, luma byte) (byte, byte, byte) {
-	// TODO: real impl
-	c := luma << 4
-	return c, c, c
-}
-
 func (tia *tia) getPlayfieldBit() bool {
 	pfX := tia.ScreenX >> 2
 	if pfX < 0 || pfX >= 40 {
@@ -151,12 +142,12 @@ func (tia *tia) getPlayfieldBit() bool {
 	return (tia.Playfield & (1 << byte(19-pfX))) != 0
 }
 
-func (tia *tia) drawColor(color, luma byte) {
+func (tia *tia) drawColor(colorLuma byte) {
 	x, y := int(tia.ScreenX), tia.ScreenY
-	r, g, b := getCol(color, luma)
-	tia.Screen[y*160*4+x*4] = r
-	tia.Screen[y*160*4+x*4+1] = g
-	tia.Screen[y*160*4+x*4+2] = b
+	col := ntscPalette[colorLuma>>1]
+	tia.Screen[y*160*4+x*4] = col[0]
+	tia.Screen[y*160*4+x*4+1] = col[1]
+	tia.Screen[y*160*4+x*4+2] = col[2]
 	tia.Screen[y*160*4+x*4+3] = 0xff
 }
 
@@ -190,15 +181,15 @@ func (tia *tia) runCycle() {
 	if tia.ScreenY >= 0 && tia.ScreenY < 192 {
 		if tia.ScreenX >= 0 && tia.ScreenX < 160 {
 			if tia.InVBlank {
-				tia.drawColor(0, 0)
+				tia.drawColor(0)
 			} else {
-				var color, luma byte
+				var colorLuma byte
 				if tia.getPlayfieldBit() {
-					color, luma = tia.PlayfieldColor, tia.PlayfieldLuma
+					colorLuma = tia.PlayfieldColorLuma
 				} else {
-					color, luma = tia.BGColor, tia.BGLuma
+					colorLuma = tia.BGColorLuma
 				}
-				tia.drawColor(color, luma)
+				tia.drawColor(colorLuma)
 			}
 		}
 	}

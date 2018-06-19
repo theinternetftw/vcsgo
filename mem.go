@@ -217,23 +217,16 @@ func (emu *emuState) write(addr uint16, val byte) {
 				emu.TIA.P1.RepeatMode = val & 0x07
 				emu.TIA.M1.Size = 1 << ((val >> 4) & 3)
 			case 0x06:
-				emu.TIA.P0.Color = val >> 4
-				emu.TIA.P0.Luma = (val >> 1) & 0x07
-				emu.TIA.M0.Color = val >> 4
-				emu.TIA.M0.Luma = (val >> 1) & 0x07
+				emu.TIA.P0.ColorLuma = val & 0xfe
+				emu.TIA.M0.ColorLuma = val & 0xfe
 			case 0x07:
-				emu.TIA.P1.Color = val >> 4
-				emu.TIA.P1.Luma = (val >> 1) & 0x07
-				emu.TIA.M1.Color = val >> 4
-				emu.TIA.M1.Luma = (val >> 1) & 0x07
+				emu.TIA.P1.ColorLuma = val & 0xfe
+				emu.TIA.M1.ColorLuma = val & 0xfe
 			case 0x08:
-				emu.TIA.PlayfieldColor = val >> 4
-				emu.TIA.PlayfieldLuma = (val >> 1) & 0x07
-				emu.TIA.BL.Color = val >> 4
-				emu.TIA.BL.Luma = (val >> 1) & 0x07
+				emu.TIA.PlayfieldColorLuma = val & 0xfe
+				emu.TIA.BL.ColorLuma = val & 0xfe
 			case 0x09:
-				emu.TIA.BGColor = val >> 4
-				emu.TIA.BGLuma = (val >> 1) & 0x07
+				emu.TIA.BGColorLuma = val & 0xfe
 			case 0x0a:
 				boolsFromByte(val,
 					nil, nil, nil, nil, nil,
