@@ -15,6 +15,9 @@ type Emulator interface {
 	ReadSoundBuffer([]byte) []byte
 
 	UpdateInput(input Input)
+
+	GetCycles() uint64
+	GetCyclesPerSecond() uint64
 }
 
 // Input covers all outside info sent to the Emulator
@@ -76,4 +79,11 @@ func (emu *emuState) FlipRequested() bool {
 
 func (emu *emuState) Step() {
 	emu.step()
+}
+
+func (emu *emuState) GetCycles() uint64 {
+	return emu.Cycles
+}
+func (emu *emuState) GetCyclesPerSecond() uint64 {
+	return TIACyclesPerSecond
 }
