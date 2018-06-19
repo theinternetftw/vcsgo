@@ -56,8 +56,8 @@ type timer struct {
 
 func (t *timer) runCycle() {
 	t.BaseClock++
-	if t.BaseClock == t.Interval || t.UnderflowSinceLastReadINTIM {
-		t.BaseClock = 0 // TODO: is this right for underflow mode?
+	if t.BaseClock >= t.Interval || t.UnderflowSinceLastReadINTIM {
+		t.BaseClock = 0
 		t.decTimer()
 	}
 }
@@ -73,19 +73,16 @@ func (t *timer) decTimer() {
 
 func (t *timer) writeAnyTIMT(interval int, val byte) {
 	t.Val = val
+	t.BaseClock = 0
 	t.Interval = interval
 	t.UnderflowSinceLastWriteAnyTIMT = false
-	// TODO: should we manually decrement here?
-	// it's "supposed to happen instantly, but
-	// runCycles should take care of it right
-	// after the op that wrote here, and before
-	// the next op...
+	t.decTimer()
 }
 
 func (t *timer) readINTIM() byte {
 	if t.UnderflowSinceLastReadINTIM {
 		t.UnderflowSinceLastReadINTIM = false
-		//t.BaseClock = 0 // TODO: is this right?
+		t.BaseClock = 0
 	}
 	return t.Val
 }
