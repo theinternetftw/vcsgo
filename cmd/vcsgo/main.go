@@ -47,6 +47,9 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 	workingAudioBuffer := make([]byte, audio.BufferSize())
 	dieIf(err)
 
+	timer := time.NewTimer(0)
+	<-timer.C
+
 	for {
 		newInput := vcsgo.Input {}
 		snapshotMode := 'x'
@@ -121,8 +124,9 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 		msFloat := float32(emu.GetCycles()-lastSleepCycles)/cyclesPerSecond*1000
 		expectedTime := time.Duration(msFloat)*time.Millisecond
 		wallTime := time.Now().Sub(lastSleepTime)
-		if wallTime-expectedTime > 17*time.Millisecond {
-			time.Sleep(17*time.Millisecond)
+		if wallTime-expectedTime > 2*time.Millisecond {
+			timer.Reset(2*time.Millisecond)
+			<-timer.C
 			lastSleepTime = time.Now()
 			lastSleepCycles = emu.GetCycles()
 		}
