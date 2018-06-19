@@ -109,8 +109,8 @@ func (emu *emuState) read(addr uint16) byte {
 
 		maskedAddr := addr & 0xfff
 		if len(emu.Mem.ROM) < 0xfff {
-			// should be a power of two but...
-			maskedAddr &= uint16(len(emu.Mem.ROM))
+			// should be a power of two but let's handle weird homebrew bins
+			maskedAddr %= uint16(len(emu.Mem.ROM))
 		}
 
 		switch emu.Mem.MapperNum {
@@ -250,10 +250,10 @@ func (emu *emuState) write(addr uint16, val byte) {
 				emu.TIA.Playfield &^= 0x0f0000
 				emu.TIA.Playfield |= uint32(reverseByte(val)&0x0f) << 16
 			case 0x0e:
-				emu.TIA.Playfield &^= 0xff00
+				emu.TIA.Playfield &^= 0x00ff00
 				emu.TIA.Playfield |= uint32(val) << 8
 			case 0x0f:
-				emu.TIA.Playfield &^= 0xff
+				emu.TIA.Playfield &^= 0x0000ff
 				emu.TIA.Playfield |= uint32(reverseByte(val))
 
 			case 0x10:
