@@ -2,10 +2,10 @@ package vcsgo
 
 func reverseByte(b byte) byte {
 	out := byte(0)
-	for i := 7; i >= 0; i-- {
-		bit := b >> byte(i)
-		bit &= 0x80 >> byte(i)
-		out |= bit
+	for i := 0; i < 8; i++ {
+		out <<= 1
+		out |= b & 1
+		b >>= 1
 	}
 	return out
 }
