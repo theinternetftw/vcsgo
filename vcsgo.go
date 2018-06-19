@@ -12,6 +12,14 @@ const (
 	showMemWrites = false
 )
 
+const (
+	// TIACyclesPerLine = 228
+	// CPUCyclesPerLine = 228/3
+	// LinesPerFrame = 262
+	// FramesPerSecond = 60
+	TIACyclesPerSecond = 228 * 262 * 60
+)
+
 type emuState struct {
 	Mem mem
 
@@ -176,7 +184,8 @@ func newState(cart []byte) *emuState {
 			Interval: 1,
 		},
 		TIA: tia{
-			ScreenX: -68,
+			ScreenX:  -68,
+			InHBlank: true,
 		},
 	}
 	emu.CPU = virt6502.Virt6502{

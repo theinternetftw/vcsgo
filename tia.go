@@ -162,9 +162,36 @@ func (tia *tia) drawColor(color, luma byte) {
 
 func (tia *tia) runCycle() {
 
-	if !tia.InHBlank && !tia.InVBlank {
-		if tia.ScreenY >= 0 && tia.ScreenY < 192 {
-			if tia.ScreenX >= 0 && tia.ScreenX < 160 {
+	if !tia.WasInVSync && tia.InVSync {
+		tia.WasInVSync = true
+		tia.flipRequested = true
+	} else if tia.WasInVSync && !tia.InVSync {
+		tia.WasInVSync = false
+		// upper border
+		tia.ScreenY = -37
+		tia.ScreenX = -68
+	}
+
+	if !tia.WasInVBlank && tia.InVBlank {
+		tia.WasInVBlank = true
+		//fmt.Printf("Enter VBlank at %3d", tia.ScreenY)
+	} else if tia.WasInVBlank && !tia.InVBlank {
+		tia.WasInVBlank = false
+		//fmt.Println(" / Exit VBlank at", tia.ScreenY)
+	}
+
+	if tia.ScreenX == -68 {
+		tia.WaitForHBlank = false
+		tia.InHBlank = true
+	} else if tia.ScreenX == 0 {
+		tia.InHBlank = false
+	}
+
+	if tia.ScreenY >= 0 && tia.ScreenY < 192 {
+		if tia.ScreenX >= 0 && tia.ScreenX < 160 {
+			if tia.InVBlank {
+				tia.drawColor(0, 0)
+			} else {
 				var color, luma byte
 				if tia.getPlayfieldBit() {
 					color, luma = tia.PlayfieldColor, tia.PlayfieldLuma
@@ -179,40 +206,15 @@ func (tia *tia) runCycle() {
 	tia.ScreenX++
 
 	if tia.ScreenX == 160 {
-		tia.WaitForHBlank = false
-		tia.InHBlank = true
 		tia.ScreenX = -68
 		tia.ScreenY++
 	}
-	if tia.ScreenX == 0 {
-		tia.InHBlank = false
-	}
 
-	if tia.ScreenY > 222 {
+	if tia.ScreenY > 221 {
 		// probably not very NTSC, but if
 		// a program doesn't vsync, lets
 		// just hang out here at the end
 		// of the screen...
-		tia.ScreenY = 222
-	}
-
-	if tia.InVSync {
-		// upper border
-		tia.ScreenY = -37
-	}
-
-	if !tia.WasInVSync && tia.InVSync {
-		tia.WasInVSync = true
-		tia.flipRequested = true
-	} else if tia.WasInVSync && !tia.InVSync {
-		tia.WasInVSync = false
-	}
-
-	if !tia.WasInVBlank && tia.InVBlank {
-		tia.WasInVBlank = true
-		// fmt.Println("Enter VBlank at", tia.ScreenY)
-	} else if tia.WasInVBlank && !tia.InVBlank {
-		tia.WasInVBlank = false
-		// fmt.Println("Exit VBlank at", tia.ScreenY)
+		tia.ScreenY = 221
 	}
 }
