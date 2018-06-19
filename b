@@ -7,8 +7,6 @@ pkg=github.com/theinternetftw/$projectname/cmd/$projectname
 if [ "$1" == "f" ]
 then
     set -x
-    go vet
-    golint
     go build $pkg
     exit
 fi
