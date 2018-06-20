@@ -59,7 +59,7 @@ type sprite struct {
 }
 
 func (s *sprite) move() {
-	x := int(s.X) + int(s.Vx)
+	x := int(s.X) - int(s.Vx)
 	if x < 0 {
 		x += 160
 	} else if x > 160 {
