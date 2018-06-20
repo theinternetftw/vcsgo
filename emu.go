@@ -4,8 +4,6 @@ package vcsgo
 type Emulator interface {
 	Step()
 
-	LoadBinaryToMem(addr uint16, bin []byte) error
-
 	MakeSnapshot() []byte
 	LoadSnapshot([]byte) (Emulator, error)
 
@@ -52,10 +50,6 @@ func (emu *emuState) UpdateInput(input Input) {
 // NewEmulator creates an emulation session
 func NewEmulator(cart []byte) Emulator {
 	return newState(cart)
-}
-
-func (emu *emuState) LoadBinaryToMem(addr uint16, bin []byte) error {
-	return emu.loadBinaryToMem(addr, bin)
 }
 
 func (emu *emuState) MakeSnapshot() []byte {

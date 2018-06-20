@@ -17,7 +17,7 @@ const (
 	// cpuCyclesPerLine = 228/3
 	// linesPerFrame = 262
 	// framesPerSecond = 60
-	tiaCyclesPerSecond = 228 * 262 * 60
+	tiaCyclesPerSecond = 1193182 * 3
 )
 
 type emuState struct {
@@ -35,9 +35,15 @@ type emuState struct {
 	LastKeyState    [256]bool
 	DebugKeyPressed bool
 
+	Input03TiedToLow bool
+
 	Input45LatchMode bool
 	Input4LatchVal   bool
 	Input5LatchVal   bool
+
+	SwtchBUnusedBit0 bool
+	SwtchBUnusedBit1 bool
+	SwtchBUnusedBit2 bool
 
 	DDRModeMaskPortA byte
 	DDRModeMaskPortB byte
@@ -102,6 +108,7 @@ func (emu *emuState) runCycles(cycles uint) {
 		emu.Cycles++
 
 		emu.Timer.runCycle()
+
 		for j := 0; j < 3; j++ {
 			emu.TIA.runCycle()
 		}
@@ -146,19 +153,17 @@ func (emu *emuState) updateInput(input Input) {
 		emu.LastKeyState[i] = down
 	}
 
-	emu.Input = input
-}
+	// TODO: other controllers
+	if emu.Input45LatchMode {
+		if emu.Input4LatchVal {
+			emu.Input4LatchVal = !emu.Input.JoyP0.Button
+		}
+		if emu.Input5LatchVal {
+			emu.Input5LatchVal = !emu.Input.JoyP1.Button
+		}
+	}
 
-func (emu *emuState) loadBinaryToMem(addr uint16, bin []byte) error {
-	fmt.Println("len", len(bin))
-	if len(bin)+int(addr) > 0x10000 {
-		return fmt.Errorf("binary len %v too big to load at %v", len(bin), addr)
-	}
-	for i, b := range bin {
-		i16 := uint16(i)
-		emu.write(addr+i16, b)
-	}
-	return nil
+	emu.Input = input
 }
 
 func (emu *emuState) reset() {
@@ -183,6 +188,8 @@ func newState(cart []byte) *emuState {
 		TIA: tia{
 			ScreenX:  -68,
 			InHBlank: true,
+			M0:       sprite{Size: 1},
+			M1:       sprite{Size: 1},
 		},
 	}
 	emu.CPU = virt6502.Virt6502{

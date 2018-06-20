@@ -48,20 +48,37 @@ func (emu *emuState) read(addr uint16) byte {
 		case 0x07:
 			val = boolBit(7, emu.TIA.Collisions.P0P1)
 			val |= boolBit(6, emu.TIA.Collisions.M0M1)
+
+		// TODO: paddles, other controllers
+		// (currently simulating no paddles plugged in)
+		case 0x08:
+			val = boolBit(0, !emu.Input03TiedToLow)
+		case 0x09:
+			val = boolBit(0, !emu.Input03TiedToLow)
+		case 0x0a:
+			val = boolBit(0, !emu.Input03TiedToLow)
+		case 0x0b:
+			val = boolBit(0, !emu.Input03TiedToLow)
+
 		case 0x0c:
+			if emu.Input45LatchMode {
+				val = boolBit(7, !emu.Input4LatchVal)
+			} else {
+				val = boolBit(7, !emu.Input.JoyP0.Button)
+			}
+		case 0x0d:
 			// TODO: other controllers!
 			if emu.Input45LatchMode {
-				val = boolBit(7, emu.Input4LatchVal)
+				val = boolBit(7, emu.Input5LatchVal)
 			} else {
-				val = boolBit(7, emu.Input.JoyP0.Button)
+				val = boolBit(7, !emu.Input.JoyP1.Button)
 			}
 		default:
 			emuErr(fmt.Sprintf("TODO: tia read 0x%04x 0x%04x", addr, maskedAddr))
 		}
 
 	case !bitOn(12) && !bitOn(9) && bitOn(7):
-		maskedAddr := addr & 0xff
-		val = emu.Mem.RAM[maskedAddr-0x80]
+		val = emu.Mem.RAM[addr&0x7f]
 
 	case !bitOn(12) && bitOn(9) && bitOn(7):
 		// IO
@@ -80,17 +97,21 @@ func (emu *emuState) read(addr uint16) byte {
 				!emu.Input.JoyP1.Down,
 				!emu.Input.JoyP1.Up,
 			)
+		case 0x1: // 0x281
+			val = emu.DDRModeMaskPortA
 		case 0x2: // 0x282
 			val = byteFromBools(
 				emu.Input.P1DifficultySwitch,
 				emu.Input.P0DifficultySwitch,
-				false,
-				false,
+				emu.SwtchBUnusedBit2,
+				emu.SwtchBUnusedBit1,
 				!emu.Input.TVBWSwitch,
-				false,
+				emu.SwtchBUnusedBit0,
 				!emu.Input.SelectButton,
 				!emu.Input.ResetButton,
 			)
+		case 0x3: // 0x283
+			val = emu.DDRModeMaskPortA
 		case 0x4, 0x06: // 0x284, 0x286
 			val = emu.Timer.readINTIM()
 		case 0x5, 0x07: // 0x285, 0x287
@@ -102,7 +123,7 @@ func (emu *emuState) read(addr uint16) byte {
 			emu.Timer.UnderflowSinceLastReadINSTAT = false
 			val = emu.Timer.readINTIM()
 		default:
-			emuErr(fmt.Sprintf("TODO: io read 0x%04x 0x%04x", addr, maskedAddr))
+			emuErr(fmt.Sprintf("impossible io read 0x%04x 0x%04x", addr, maskedAddr))
 		}
 
 	case bitOn(12):
@@ -202,9 +223,10 @@ func (emu *emuState) write(addr uint16, val byte) {
 					emu.Input4LatchVal = true
 					emu.Input5LatchVal = true
 				}
-				if val&0x80 != 0 {
-					emuErr("input0-3 control on mem 0x01 not yet implemented")
-				}
+
+				// TODO: paddle controllers, 3button adapter
+				emu.Input03TiedToLow = val&0x80 != 0
+
 				emu.TIA.InVBlank = val&0x02 != 0
 			case 0x02:
 				emu.TIA.WaitForHBlank = true
@@ -273,15 +295,36 @@ func (emu *emuState) write(addr uint16, val byte) {
 				emu.APU.Channel1.Volume = val & 0x0f
 
 			case 0x1b:
-				emu.TIA.P0.Shape = val
+				if emu.TIA.DelayGRP0 {
+					emu.TIA.P0.loadDelayLatch(val)
+				} else {
+					emu.TIA.P0.Shape = val
+				}
+				if emu.TIA.DelayGRP1 {
+					emu.TIA.P1.releaseDelayLatchIntoShape()
+				}
 			case 0x1c:
-				emu.TIA.P1.Shape = val
+				if emu.TIA.DelayGRP1 {
+					emu.TIA.P1.loadDelayLatch(val)
+				} else {
+					emu.TIA.P1.Shape = val
+				}
+				if emu.TIA.DelayGRP0 {
+					emu.TIA.P0.releaseDelayLatchIntoShape()
+				}
+				if emu.TIA.DelayGRBL {
+					emu.TIA.BL.releaseDelayLatchIntoEnabl()
+				}
 			case 0x1d:
 				emu.TIA.M0.Show = val&0x02 != 0
 			case 0x1e:
 				emu.TIA.M1.Show = val&0x02 != 0
 			case 0x1f:
-				emu.TIA.BL.Show = val&0x02 != 0
+				if emu.TIA.DelayGRBL {
+					emu.TIA.P1.loadDelayLatch(val & 0x02)
+				} else {
+					emu.TIA.BL.Show = val&0x02 != 0
+				}
 			case 0x20:
 				emu.TIA.P0.Vx = int8(val&0xf0) >> 4
 			case 0x21:
@@ -294,10 +337,13 @@ func (emu *emuState) write(addr uint16, val byte) {
 				emu.TIA.BL.Vx = int8(val&0xf0) >> 4
 			case 0x25:
 				emu.TIA.DelayGRP0 = val&0x01 != 0
+				// TODO: reset latches when delay is set?
 			case 0x26:
 				emu.TIA.DelayGRP1 = val&0x01 != 0
+				// TODO: reset latches when delay is set?
 			case 0x27:
 				emu.TIA.DelayGRBL = val&0x01 != 0
+				// TODO: reset latches when delay is set?
 			case 0x28:
 				emu.TIA.HideM0 = val&0x02 != 0
 			case 0x29:
@@ -322,6 +368,18 @@ func (emu *emuState) write(addr uint16, val byte) {
 		maskedAddr := addr & 0x07
 		switch maskedAddr {
 		case 0x1: // 0x281
+			emu.DDRModeMaskPortA = val
+		case 0x2: // 0x282
+			boolsFromByte(val,
+				nil,
+				nil,
+				&emu.SwtchBUnusedBit2,
+				&emu.SwtchBUnusedBit1,
+				nil,
+				&emu.SwtchBUnusedBit0,
+				nil,
+				nil,
+			)
 			emu.DDRModeMaskPortA = val
 		case 0x3: // 0x283
 			emu.DDRModeMaskPortB = val

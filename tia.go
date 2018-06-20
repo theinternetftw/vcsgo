@@ -46,6 +46,9 @@ type sprite struct {
 
 	ColorLuma byte
 
+	DelayLatchVal byte
+	DelayLatchHit bool
+
 	// only for P0/P1
 	Shape   byte
 	Reflect bool
@@ -58,11 +61,35 @@ type sprite struct {
 	Show bool
 }
 
+func (s *sprite) loadDelayLatch(val byte) {
+	s.DelayLatchVal = val
+	s.DelayLatchHit = true
+}
+
+func (s *sprite) releaseDelayLatchIntoShape() {
+	if s.DelayLatchHit {
+		s.Shape = s.DelayLatchVal
+	}
+	s.DelayLatchHit = false
+}
+
+func (s *sprite) releaseDelayLatchIntoEnabl() {
+	if s.DelayLatchHit {
+		s.Show = s.DelayLatchVal != 0
+	}
+	s.DelayLatchHit = false
+}
+
+func (s *sprite) resetDelayLatch() {
+	s.DelayLatchHit = false
+}
+
 func (s *sprite) move() {
 	x := int(s.X) - int(s.Vx)
-	if x < 0 {
+	for x < 0 {
 		x += 160
-	} else if x > 160 {
+	}
+	for x >= 160 {
 		x -= 160
 	}
 	s.X = byte(x)
@@ -188,6 +215,24 @@ func (tia *tia) getPlayerBit(player *sprite) bool {
 	return (player.Shape<<shapeX)&0x80 == 0x80
 }
 
+func (tia *tia) getMissileBit(missile, player *sprite) bool {
+
+	row := repeatModeTable[player.RepeatMode]
+	mX := tia.ScreenX - int(missile.X)
+	if mX < 0 || mX >= 9*8 {
+		return false
+	}
+
+	col := mX >> 3
+	if row[col] == 0 {
+		return false
+	}
+
+	shapeX := mX
+	shapeX &= 7
+	return shapeX <= int(missile.Size)-1
+}
+
 func (tia *tia) drawColor(colorLuma byte) {
 	x, y := int(tia.ScreenX), tia.ScreenY
 	col := ntscPalette[colorLuma>>1]
@@ -195,6 +240,18 @@ func (tia *tia) drawColor(colorLuma byte) {
 	tia.Screen[y*160*4+x*4+1] = col[1]
 	tia.Screen[y*160*4+x*4+2] = col[2]
 	tia.Screen[y*160*4+x*4+3] = 0xff
+}
+
+func (s *sprite) lockMissileToPlayer(player *sprite) {
+	s.X = player.X
+	if player.RepeatMode == 5 {
+		s.X += 3
+	} else if player.RepeatMode == 7 {
+		s.X += 5
+	} else {
+		s.X += 10
+	}
+	// TODO: should it wrap?
 }
 
 func (tia *tia) runCycle() {
@@ -207,6 +264,13 @@ func (tia *tia) runCycle() {
 		// upper border
 		tia.ScreenY = -37
 		tia.ScreenX = -68
+	}
+
+	if tia.HideM0 {
+		tia.M0.lockMissileToPlayer(&tia.P0)
+	}
+	if tia.HideM1 {
+		tia.M1.lockMissileToPlayer(&tia.P1)
 	}
 
 	if !tia.WasInVBlank && tia.InVBlank {
@@ -235,10 +299,10 @@ func (tia *tia) runCycle() {
 
 			playfieldBit := tia.getPlayfieldBit()
 			ballBit := tia.getBallBit()
-			//m0Bit := tia.getM0Bit()
-			//m1Bit := tia.getM1Bit()
 			p0Bit := tia.getPlayerBit(&tia.P0)
 			p1Bit := tia.getPlayerBit(&tia.P1)
+			m0Bit := tia.getMissileBit(&tia.M0, &tia.P0)
+			m1Bit := tia.getMissileBit(&tia.M1, &tia.P1)
 
 			updateCollision := func(collision *bool, test bool) {
 				if test {
@@ -250,20 +314,36 @@ func (tia *tia) runCycle() {
 
 			updateCollision(&tia.Collisions.P0PF, p0Bit && playfieldBit)
 			updateCollision(&tia.Collisions.P0BL, p0Bit && ballBit)
+
+			updateCollision(&tia.Collisions.M0P0, m0Bit && p0Bit)
+			updateCollision(&tia.Collisions.M0P1, m0Bit && p1Bit)
+			updateCollision(&tia.Collisions.M0PF, m0Bit && playfieldBit)
+			updateCollision(&tia.Collisions.M0BL, m0Bit && ballBit)
+
 			updateCollision(&tia.Collisions.P1PF, p1Bit && playfieldBit)
 			updateCollision(&tia.Collisions.P1BL, p1Bit && ballBit)
 
+			updateCollision(&tia.Collisions.M1P0, m1Bit && p0Bit)
+			updateCollision(&tia.Collisions.M1P1, m1Bit && p1Bit)
+			updateCollision(&tia.Collisions.M1PF, m1Bit && playfieldBit)
+			updateCollision(&tia.Collisions.M1BL, m1Bit && ballBit)
+
 			updateCollision(&tia.Collisions.P0P1, p0Bit && p1Bit)
+			updateCollision(&tia.Collisions.M0M1, m0Bit && m1Bit)
+
+			drawPFBL := playfieldBit || (ballBit && tia.BL.Show)
+			drawP0M0 := p0Bit || (m0Bit && tia.M0.Show && !tia.HideM0)
+			drawP1M1 := p1Bit || (m1Bit && tia.M1.Show && !tia.HideM1)
 
 			var colorLuma byte
 			if tia.InVBlank {
 				colorLuma = 0
 			} else if tia.PFAndBLHavePriority {
-				if playfieldBit || (ballBit && tia.BL.Show) {
+				if drawPFBL {
 					colorLuma = tia.PlayfieldAndBallColorLuma
-				} else if p0Bit {
+				} else if drawP0M0 {
 					colorLuma = tia.P0.ColorLuma
-				} else if p1Bit {
+				} else if drawP1M1 {
 					colorLuma = tia.P1.ColorLuma
 				} else {
 					colorLuma = tia.BGColorLuma
@@ -275,11 +355,11 @@ func (tia *tia) runCycle() {
 					} else {
 						colorLuma = tia.P1.ColorLuma
 					}
-				} else if p0Bit {
+				} else if drawP0M0 {
 					colorLuma = tia.P0.ColorLuma
-				} else if p1Bit {
+				} else if drawP1M1 {
 					colorLuma = tia.P1.ColorLuma
-				} else if playfieldBit || (ballBit && tia.BL.Show) {
+				} else if drawPFBL {
 					colorLuma = tia.PlayfieldAndBallColorLuma
 				} else {
 					colorLuma = tia.BGColorLuma
