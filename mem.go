@@ -223,8 +223,7 @@ func (emu *emuState) write(addr uint16, val byte) {
 				emu.TIA.P1.ColorLuma = val & 0xfe
 				emu.TIA.M1.ColorLuma = val & 0xfe
 			case 0x08:
-				emu.TIA.PlayfieldColorLuma = val & 0xfe
-				emu.TIA.BL.ColorLuma = val & 0xfe
+				emu.TIA.PlayfieldAndBallColorLuma = val & 0xfe
 			case 0x09:
 				emu.TIA.BGColorLuma = val & 0xfe
 			case 0x0a:

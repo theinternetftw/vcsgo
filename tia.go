@@ -21,7 +21,7 @@ type tia struct {
 	PlayfieldScoreColorMode bool
 	PlayfieldReflect        bool
 
-	PlayfieldColorLuma byte
+	PlayfieldAndBallColorLuma byte
 
 	BGColorLuma byte
 
@@ -124,8 +124,9 @@ func (tia *tia) clearHorizMotion() {
 }
 
 func (tia *tia) resetHorizCounter() {
+	// TODO: see if this is correct behavior
 	tia.ScreenX = -68
-	tia.InHBlank = false
+	tia.InHBlank = true
 }
 
 func (tia *tia) getPlayfieldBit() bool {
@@ -140,6 +141,51 @@ func (tia *tia) getPlayfieldBit() bool {
 		}
 	}
 	return (tia.Playfield & (1 << byte(19-pfX))) != 0
+}
+
+func (tia *tia) getBallBit() bool {
+	x := tia.ScreenX
+	blX := int(tia.BL.X)
+	blSz := int(tia.BL.Size)
+	return x >= blX && x < blX+blSz
+}
+
+var repeatModeTable = [8][9]byte{
+	{1, 0, 0, 0, 0, 0, 0, 0, 0},
+	{1, 0, 1, 0, 0, 0, 0, 0, 0},
+	{1, 0, 0, 0, 1, 0, 0, 0, 0},
+	{1, 0, 1, 0, 1, 0, 0, 0, 0},
+	{1, 0, 0, 0, 0, 0, 0, 0, 1},
+	{1, 1, 0, 0, 0, 0, 0, 0, 0},
+	{1, 0, 0, 0, 1, 0, 0, 0, 1},
+	{1, 1, 1, 1, 0, 0, 0, 0, 0},
+}
+
+func (tia *tia) getPlayerBit(player *sprite) bool {
+
+	row := repeatModeTable[player.RepeatMode]
+	pX := tia.ScreenX - int(player.X)
+	if pX < 0 || pX >= 9*8 {
+		return false
+	}
+
+	col := pX >> 3
+	if row[col] == 0 {
+		return false
+	}
+
+	shapeX := uint(pX)
+	if player.RepeatMode == 5 {
+		shapeX >>= 1 // double width
+	} else if player.RepeatMode == 7 {
+		shapeX >>= 2 // quad width
+	}
+	shapeX &= 7
+
+	if player.Reflect {
+		return (player.Shape>>shapeX)&1 == 1
+	}
+	return (player.Shape<<shapeX)&0x80 == 0x80
 }
 
 func (tia *tia) drawColor(colorLuma byte) {
@@ -171,41 +217,78 @@ func (tia *tia) runCycle() {
 		//fmt.Println(" / Exit VBlank at", tia.ScreenY)
 	}
 
-	if tia.ScreenX == -68 {
+	if tia.ScreenX == 160 {
+		tia.ScreenX = -68
 		tia.WaitForHBlank = false
 		tia.InHBlank = true
+		if tia.ScreenY++; tia.ScreenY > 221 {
+			// if a program doesn't vsync, lets just hang
+			// out here at the end of the screen...
+			tia.ScreenY = 221
+		}
 	} else if tia.ScreenX == 0 {
 		tia.InHBlank = false
 	}
 
 	if tia.ScreenY >= 0 && tia.ScreenY < 192 {
 		if tia.ScreenX >= 0 && tia.ScreenX < 160 {
+
+			playfieldBit := tia.getPlayfieldBit()
+			ballBit := tia.getBallBit()
+			//m0Bit := tia.getM0Bit()
+			//m1Bit := tia.getM1Bit()
+			p0Bit := tia.getPlayerBit(&tia.P0)
+			p1Bit := tia.getPlayerBit(&tia.P1)
+
+			updateCollision := func(collision *bool, test bool) {
+				if test {
+					*collision = true
+				}
+			}
+
+			updateCollision(&tia.Collisions.BLPF, ballBit && playfieldBit)
+
+			updateCollision(&tia.Collisions.P0PF, p0Bit && playfieldBit)
+			updateCollision(&tia.Collisions.P0BL, p0Bit && ballBit)
+			updateCollision(&tia.Collisions.P1PF, p1Bit && playfieldBit)
+			updateCollision(&tia.Collisions.P1BL, p1Bit && ballBit)
+
+			updateCollision(&tia.Collisions.P0P1, p0Bit && p1Bit)
+
+			var colorLuma byte
 			if tia.InVBlank {
-				tia.drawColor(0)
-			} else {
-				var colorLuma byte
-				if tia.getPlayfieldBit() {
-					colorLuma = tia.PlayfieldColorLuma
+				colorLuma = 0
+			} else if tia.PFAndBLHavePriority {
+				if playfieldBit || (ballBit && tia.BL.Show) {
+					colorLuma = tia.PlayfieldAndBallColorLuma
+				} else if p0Bit {
+					colorLuma = tia.P0.ColorLuma
+				} else if p1Bit {
+					colorLuma = tia.P1.ColorLuma
 				} else {
 					colorLuma = tia.BGColorLuma
 				}
-				tia.drawColor(colorLuma)
+			} else {
+				if tia.PlayfieldScoreColorMode && playfieldBit {
+					if tia.ScreenX < 80 {
+						colorLuma = tia.P0.ColorLuma
+					} else {
+						colorLuma = tia.P1.ColorLuma
+					}
+				} else if p0Bit {
+					colorLuma = tia.P0.ColorLuma
+				} else if p1Bit {
+					colorLuma = tia.P1.ColorLuma
+				} else if playfieldBit || (ballBit && tia.BL.Show) {
+					colorLuma = tia.PlayfieldAndBallColorLuma
+				} else {
+					colorLuma = tia.BGColorLuma
+				}
 			}
+
+			tia.drawColor(colorLuma)
 		}
 	}
 
 	tia.ScreenX++
-
-	if tia.ScreenX == 160 {
-		tia.ScreenX = -68
-		tia.ScreenY++
-	}
-
-	if tia.ScreenY > 221 {
-		// probably not very NTSC, but if
-		// a program doesn't vsync, lets
-		// just hang out here at the end
-		// of the screen...
-		tia.ScreenY = 221
-	}
 }
