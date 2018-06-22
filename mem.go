@@ -310,36 +310,15 @@ func (emu *emuState) write(addr uint16, val byte) {
 				emu.APU.Channel1.Volume = val & 0x0f
 
 			case 0x1b:
-				if emu.TIA.DelayGRP0 {
-					emu.TIA.P0.loadDelayLatch(val)
-				} else {
-					emu.TIA.P0.Shape = val
-				}
-				if emu.TIA.DelayGRP1 {
-					emu.TIA.P1.releaseDelayLatchIntoShape()
-				}
+				emu.TIA.loadShapeP0(val)
 			case 0x1c:
-				if emu.TIA.DelayGRP1 {
-					emu.TIA.P1.loadDelayLatch(val)
-				} else {
-					emu.TIA.P1.Shape = val
-				}
-				if emu.TIA.DelayGRP0 {
-					emu.TIA.P0.releaseDelayLatchIntoShape()
-				}
-				if emu.TIA.DelayGRBL {
-					emu.TIA.BL.releaseDelayLatchIntoEnabl()
-				}
+				emu.TIA.loadShapeP1(val)
 			case 0x1d:
 				emu.TIA.M0.Show = val&0x02 != 0
 			case 0x1e:
 				emu.TIA.M1.Show = val&0x02 != 0
 			case 0x1f:
-				if emu.TIA.DelayGRBL {
-					emu.TIA.P1.loadDelayLatch(val & 0x02)
-				} else {
-					emu.TIA.BL.Show = val&0x02 != 0
-				}
+				emu.TIA.loadEnablBL(val&0x02 != 0)
 			case 0x20:
 				emu.TIA.P0.Vx = int8(val&0xf0) >> 4
 			case 0x21:

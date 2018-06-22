@@ -46,12 +46,10 @@ type sprite struct {
 
 	ColorLuma byte
 
-	DelayLatchVal byte
-	DelayLatchHit bool
-
 	// only for P0/P1
-	Shape   byte
-	Reflect bool
+	LatchedShape byte
+	Shape        byte
+	Reflect      bool
 
 	// only for P0/P1/M0/M1
 	RepeatMode byte
@@ -59,29 +57,22 @@ type sprite struct {
 	// only for BL/M0/M1
 	Size byte
 	Show bool
+
+	// only for BL
+	LatchedShow bool
 }
 
-func (s *sprite) loadDelayLatch(val byte) {
-	s.DelayLatchVal = val
-	s.DelayLatchHit = true
+func (tia *tia) loadShapeP0(val byte) {
+	tia.P0.Shape = val
+	tia.P1.LatchedShape = tia.P1.Shape
 }
-
-func (s *sprite) releaseDelayLatchIntoShape() {
-	if s.DelayLatchHit {
-		s.Shape = s.DelayLatchVal
-	}
-	s.DelayLatchHit = false
+func (tia *tia) loadShapeP1(val byte) {
+	tia.P1.Shape = val
+	tia.P0.LatchedShape = tia.P0.Shape
+	tia.BL.LatchedShow = tia.BL.Show
 }
-
-func (s *sprite) releaseDelayLatchIntoEnabl() {
-	if s.DelayLatchHit {
-		s.Show = s.DelayLatchVal != 0
-	}
-	s.DelayLatchHit = false
-}
-
-func (s *sprite) resetDelayLatch() {
-	s.DelayLatchHit = false
+func (tia *tia) loadEnablBL(val bool) {
+	tia.BL.Show = val
 }
 
 func (s *sprite) move() {
@@ -103,16 +94,16 @@ func (tia *tia) resetBL() { tia.resetObject(&tia.BL) }
 
 func (tia *tia) resetPlayer(player *sprite) {
 	if tia.InHBlank {
-		player.X = 3
+		player.X = 4
 	} else {
-		player.X = byte(tia.ScreenX)
+		player.X = byte(tia.ScreenX+9) % 160
 	}
 }
 func (tia *tia) resetObject(obj *sprite) {
 	if tia.InHBlank {
-		obj.X = 2
+		obj.X = 3
 	} else {
-		obj.X = byte(tia.ScreenX)
+		obj.X = byte(tia.ScreenX+9) % 160
 	}
 }
 
@@ -188,7 +179,7 @@ var repeatModeTable = [8][9]byte{
 	{1, 1, 1, 1, 0, 0, 0, 0, 0},
 }
 
-func (tia *tia) getPlayerBit(player *sprite) bool {
+func (tia *tia) getPlayerBit(player *sprite, delay bool) bool {
 
 	row := repeatModeTable[player.RepeatMode]
 	pX := tia.ScreenX - int(player.X)
@@ -209,10 +200,15 @@ func (tia *tia) getPlayerBit(player *sprite) bool {
 	}
 	shapeX &= 7
 
-	if player.Reflect {
-		return (player.Shape>>shapeX)&1 == 1
+	shape := player.Shape
+	if delay {
+		shape = player.LatchedShape
 	}
-	return (player.Shape<<shapeX)&0x80 == 0x80
+
+	if player.Reflect {
+		return (shape>>shapeX)&1 == 1
+	}
+	return (shape<<shapeX)&0x80 == 0x80
 }
 
 func (tia *tia) getMissileBit(missile, player *sprite) bool {
@@ -262,6 +258,7 @@ func (tia *tia) runCycle() {
 	} else if tia.WasInVSync && !tia.InVSync {
 		tia.WasInVSync = false
 		// upper border
+		// tia.ScreenY = -37
 		tia.ScreenY = -37
 		tia.ScreenX = -68
 	}
@@ -299,8 +296,8 @@ func (tia *tia) runCycle() {
 
 			playfieldBit := tia.getPlayfieldBit()
 			ballBit := tia.getBallBit()
-			p0Bit := tia.getPlayerBit(&tia.P0)
-			p1Bit := tia.getPlayerBit(&tia.P1)
+			p0Bit := tia.getPlayerBit(&tia.P0, tia.DelayGRP0)
+			p1Bit := tia.getPlayerBit(&tia.P1, tia.DelayGRP1)
 			m0Bit := tia.getMissileBit(&tia.M0, &tia.P0)
 			m1Bit := tia.getMissileBit(&tia.M1, &tia.P1)
 
@@ -331,7 +328,12 @@ func (tia *tia) runCycle() {
 			updateCollision(&tia.Collisions.P0P1, p0Bit && p1Bit)
 			updateCollision(&tia.Collisions.M0M1, m0Bit && m1Bit)
 
-			drawPFBL := playfieldBit || (ballBit && tia.BL.Show)
+			blShow := tia.BL.Show
+			if tia.DelayGRBL {
+				blShow = tia.BL.LatchedShow
+			}
+
+			drawPFBL := playfieldBit || (ballBit && blShow)
 			drawP0M0 := p0Bit || (m0Bit && tia.M0.Show && !tia.HideM0)
 			drawP1M1 := p1Bit || (m1Bit && tia.M1.Show && !tia.HideM1)
 
