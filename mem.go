@@ -75,8 +75,9 @@ func (emu *emuState) read(addr uint16) byte {
 			} else {
 				val = boolBit(7, !emu.Input.JoyP1.Button)
 			}
-		default:
-			emuErr(fmt.Sprintf("TODO: tia read 0x%04x 0x%04x", addr, maskedAddr))
+
+			//case 0x0e, 0x0f:
+			// TODO: return garbage? switch to crash for debug purposes?
 		}
 
 	case !bitOn(12) && !bitOn(9) && bitOn(7):
@@ -290,11 +291,11 @@ func (emu *emuState) write(addr uint16, val byte) {
 			case 0x11:
 				emu.TIA.resetPlayer(&emu.TIA.P1)
 			case 0x12:
-				emu.TIA.resetObject(&emu.TIA.M0)
+				emu.TIA.resetMissile(&emu.TIA.M0)
 			case 0x13:
-				emu.TIA.resetObject(&emu.TIA.M1)
+				emu.TIA.resetMissile(&emu.TIA.M1)
 			case 0x14:
-				emu.TIA.resetObject(&emu.TIA.BL)
+				emu.TIA.resetBall(&emu.TIA.BL)
 
 			case 0x15:
 				emu.APU.Channel0.Control = val & 0x0f
@@ -374,7 +375,6 @@ func (emu *emuState) write(addr uint16, val byte) {
 				nil,
 				nil,
 			)
-			emu.DDRModeMaskPortA = val
 		case 0x3: // 0x283
 			emu.DDRModeMaskPortB = val
 		case 0x4: // 0x284, 0x294

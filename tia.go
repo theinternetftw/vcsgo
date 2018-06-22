@@ -41,8 +41,10 @@ type tia struct {
 }
 
 type sprite struct {
-	X  byte
-	Vx int8
+	X              byte
+	Vx             int8
+	ResetRequested bool
+	ResetX         byte
 
 	ColorLuma byte
 
@@ -88,22 +90,31 @@ func (s *sprite) move() {
 
 func (tia *tia) resetP0() { tia.resetPlayer(&tia.P0) }
 func (tia *tia) resetP1() { tia.resetPlayer(&tia.P1) }
-func (tia *tia) resetM0() { tia.resetObject(&tia.M0) }
-func (tia *tia) resetM1() { tia.resetObject(&tia.M1) }
-func (tia *tia) resetBL() { tia.resetObject(&tia.BL) }
+func (tia *tia) resetM0() { tia.resetMissile(&tia.M0) }
+func (tia *tia) resetM1() { tia.resetMissile(&tia.M1) }
+func (tia *tia) resetBL() { tia.resetBall(&tia.BL) }
 
 func (tia *tia) resetPlayer(player *sprite) {
 	if tia.InHBlank {
 		player.X = 4
 	} else {
-		player.X = byte(tia.ScreenX+9) % 160
+		player.ResetRequested = true
+		player.ResetX = byte(tia.ScreenX+9) % 160
 	}
 }
-func (tia *tia) resetObject(obj *sprite) {
+func (tia *tia) resetMissile(missile *sprite) {
 	if tia.InHBlank {
-		obj.X = 3
+		missile.X = 3
 	} else {
-		obj.X = byte(tia.ScreenX+9) % 160
+		missile.ResetRequested = true
+		missile.ResetX = byte(tia.ScreenX+9) % 160
+	}
+}
+func (tia *tia) resetBall(ball *sprite) {
+	if tia.InHBlank {
+		ball.X = 3
+	} else {
+		ball.X = byte(tia.ScreenX+9) % 160
 	}
 }
 
@@ -250,6 +261,20 @@ func (s *sprite) lockMissileToPlayer(player *sprite) {
 	// TODO: should it wrap?
 }
 
+func (s *sprite) updateFromReset() {
+	if s.ResetRequested {
+		s.ResetRequested = false
+		s.X = s.ResetX
+	}
+}
+
+func (tia *tia) updatePositionsFromReset() {
+	tia.P0.updateFromReset()
+	tia.P1.updateFromReset()
+	tia.M0.updateFromReset()
+	tia.M1.updateFromReset()
+}
+
 func (tia *tia) runCycle() {
 
 	if !tia.WasInVSync && tia.InVSync {
@@ -260,7 +285,6 @@ func (tia *tia) runCycle() {
 		// upper border
 		// tia.ScreenY = -37
 		tia.ScreenY = -37
-		tia.ScreenX = -68
 	}
 
 	if tia.HideM0 {
@@ -287,6 +311,7 @@ func (tia *tia) runCycle() {
 			// out here at the end of the screen...
 			tia.ScreenY = 221
 		}
+		tia.updatePositionsFromReset()
 	} else if tia.ScreenX == 0 {
 		tia.InHBlank = false
 	}
