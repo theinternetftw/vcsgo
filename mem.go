@@ -9,6 +9,8 @@ type mem struct {
 	MapperNum     byte
 	SelectedBanks [8]byte    // maximum slices needed
 	MapperRAM     [2048]byte // maximum ram needed
+
+	TriedToWriteToSuperChip bool
 }
 
 func (emu *emuState) read(addr uint16) byte {
@@ -128,53 +130,58 @@ func (emu *emuState) read(addr uint16) byte {
 
 	case bitOn(12):
 
-		maskedAddr := addr & 0xfff
-		if len(emu.Mem.ROM) < 0xfff {
-			// should be a power of two but let's handle weird homebrew bins
-			maskedAddr %= uint16(len(emu.Mem.ROM))
-		}
+		if emu.Mem.TriedToWriteToSuperChip && addr >= 0x1080 && addr <= 0x10ff {
+			val = emu.Mem.MapperRAM[addr-0x1080]
+		} else {
 
-		switch emu.Mem.MapperNum {
-		case 0xf8, 0xf6, 0xf4:
-			bank := uint16(emu.Mem.SelectedBanks[0])
-			val = emu.Mem.ROM[bank*4096+maskedAddr]
-		case 0xe0:
-			if maskedAddr < 0xc00 {
-				selector := maskedAddr >> 10
-				bank := uint16(emu.Mem.SelectedBanks[selector])
-				val = emu.Mem.ROM[bank*1024+(maskedAddr&0x3ff)]
-			} else {
-				val = emu.Mem.ROM[7*1024+(maskedAddr&0x3ff)]
+			maskedAddr := addr & 0xfff
+			if len(emu.Mem.ROM) < 0xfff {
+				// should be a power of two but let's handle weird homebrew bins
+				maskedAddr %= uint16(len(emu.Mem.ROM))
 			}
-		case 0x3f:
-			if maskedAddr < 0x800 {
-				bank := uint16(emu.Mem.SelectedBanks[0])
-				val = emu.Mem.ROM[bank*2048+maskedAddr]
-			} else {
-				val = emu.Mem.ROM[3*2048+(maskedAddr&0x7ff)]
-			}
-		case 0xfa:
-			if addr >= 0x1100 && addr <= 0x11ff {
-				val = emu.Mem.MapperRAM[addr&0xff]
-				// TODO(?): another clause for RAM write zone?
-				// would that write garbage data?
-			} else {
+
+			switch emu.Mem.MapperNum {
+			case 0xf8, 0xf6, 0xf4:
 				bank := uint16(emu.Mem.SelectedBanks[0])
 				val = emu.Mem.ROM[bank*4096+maskedAddr]
+			case 0xe0:
+				if maskedAddr < 0xc00 {
+					selector := maskedAddr >> 10
+					bank := uint16(emu.Mem.SelectedBanks[selector])
+					val = emu.Mem.ROM[bank*1024+(maskedAddr&0x3ff)]
+				} else {
+					val = emu.Mem.ROM[7*1024+(maskedAddr&0x3ff)]
+				}
+			case 0x3f:
+				if maskedAddr < 0x800 {
+					bank := uint16(emu.Mem.SelectedBanks[0])
+					val = emu.Mem.ROM[bank*2048+maskedAddr]
+				} else {
+					val = emu.Mem.ROM[3*2048+(maskedAddr&0x7ff)]
+				}
+			case 0xfa:
+				if addr >= 0x1100 && addr <= 0x11ff {
+					val = emu.Mem.MapperRAM[addr&0xff]
+					// TODO(?): another clause for RAM write zone?
+					// would that write garbage data?
+				} else {
+					bank := uint16(emu.Mem.SelectedBanks[0])
+					val = emu.Mem.ROM[bank*4096+maskedAddr]
+				}
+			case 0xe7:
+				emuErr("e7 mapper reads not yet implemented")
+			case 0xf0:
+				if addr == 0x1fec {
+					val = emu.Mem.SelectedBanks[0]
+				} else {
+					bank := uint16(emu.Mem.SelectedBanks[0])
+					val = emu.Mem.ROM[bank*4096+maskedAddr]
+				}
+			case 0x00:
+				val = emu.Mem.ROM[maskedAddr]
+			default:
+				emuErr(fmt.Sprintf("read with unknown mapper 0x%02x", emu.Mem.MapperNum))
 			}
-		case 0xe7:
-			emuErr("e7 mapper reads not yet implemented")
-		case 0xf0:
-			if addr == 0x1fec {
-				val = emu.Mem.SelectedBanks[0]
-			} else {
-				bank := uint16(emu.Mem.SelectedBanks[0])
-				val = emu.Mem.ROM[bank*4096+maskedAddr]
-			}
-		case 0x00:
-			val = emu.Mem.ROM[maskedAddr]
-		default:
-			emuErr(fmt.Sprintf("read with unknown mapper 0x%02x", emu.Mem.MapperNum))
 		}
 
 	default:
@@ -192,6 +199,14 @@ func (emu *emuState) write(addr uint16, val byte) {
 
 	if emu.Mem.MapperNum == 0x00 && len(emu.Mem.ROM) > 4096 {
 		emu.Mem.MapperNum = emu.guessMapperFromWrite(addr)
+	}
+	if !emu.Mem.TriedToWriteToSuperChip {
+		if emu.Mem.MapperNum != 0xfa && emu.Mem.MapperNum != 0xe7 {
+			if addr >= 0x1000 && addr <= 0x107f {
+				fmt.Println("activating superchip mode!")
+				emu.Mem.TriedToWriteToSuperChip = true
+			}
+		}
 	}
 
 	if showMemWrites {
@@ -396,43 +411,47 @@ func (emu *emuState) write(addr uint16, val byte) {
 		}
 
 	case bitOn(12):
-		// ROM
-		switch emu.Mem.MapperNum {
-		case 0xf8:
-			if addr >= 0x1ff8 && addr <= 0x1ff9 {
-				emu.Mem.SelectedBanks[0] = byte(addr - 0x1ff8)
+		// ROM (or Mapper RAM)
+		if emu.Mem.TriedToWriteToSuperChip && addr >= 0x1000 && addr <= 0x107f {
+			emu.Mem.MapperRAM[addr-0x1000] = val
+		} else {
+			switch emu.Mem.MapperNum {
+			case 0xf8:
+				if addr >= 0x1ff8 && addr <= 0x1ff9 {
+					emu.Mem.SelectedBanks[0] = byte(addr - 0x1ff8)
+				}
+			case 0xe0:
+				if addr >= 0x1fe0 && addr <= 0x1ff8 {
+					sliceNum := ((addr - 0x1fe0) >> 3) & 3
+					bankNum := byte((addr - 0x1fe0) & 7)
+					emu.Mem.SelectedBanks[sliceNum] = bankNum
+				}
+			case 0x3f:
+				// pass (handled in TIA write section)
+			case 0xfa:
+				if addr >= 0x1ff8 && addr <= 0x1ffa {
+					emu.Mem.SelectedBanks[0] = byte(addr - 0x1ff8)
+				} else if addr >= 0x1000 && addr <= 0x10ff {
+					emu.Mem.MapperRAM[addr-0x1000] = val
+				}
+			case 0xf6:
+				if addr >= 0x1ff6 && addr <= 0x1ff9 {
+					emu.Mem.SelectedBanks[0] = byte(addr - 0x1ff6)
+				}
+			case 0xf4:
+				if addr >= 0x1ff4 && addr <= 0x1ffb {
+					emu.Mem.SelectedBanks[0] = byte(addr - 0x1ff4)
+				}
+			case 0xf0:
+				if addr == 0x1ff0 {
+					emu.Mem.SelectedBanks[0]++
+					emu.Mem.SelectedBanks[0] &= 0x0f
+				}
+			case 0x00:
+				// pass
+			default:
+				emuErr(fmt.Sprintf("rom bank switch or nop writes unimplemented for mapper 0x%02x: write(0x%04x, 0x%02x)", emu.Mem.MapperNum, addr, val))
 			}
-		case 0xe0:
-			if addr >= 0x1fe0 && addr <= 0x1ff8 {
-				sliceNum := ((addr - 0x1fe0) >> 3) & 3
-				bankNum := byte((addr - 0x1fe0) & 7)
-				emu.Mem.SelectedBanks[sliceNum] = bankNum
-			}
-		case 0x3f:
-			// pass (handled in TIA write section)
-		case 0xfa:
-			if addr >= 0x1ff8 && addr <= 0x1ffa {
-				emu.Mem.SelectedBanks[0] = byte(addr - 0x1ff8)
-			} else if addr >= 0x1000 && addr <= 0x10ff {
-				emu.Mem.MapperRAM[addr-0x1000] = val
-			}
-		case 0xf6:
-			if addr >= 0x1ff6 && addr <= 0x1ff9 {
-				emu.Mem.SelectedBanks[0] = byte(addr - 0x1ff6)
-			}
-		case 0xf4:
-			if addr >= 0x1ff4 && addr <= 0x1ffb {
-				emu.Mem.SelectedBanks[0] = byte(addr - 0x1ff4)
-			}
-		case 0xf0:
-			if addr == 0x1ff0 {
-				emu.Mem.SelectedBanks[0]++
-				emu.Mem.SelectedBanks[0] &= 0x0f
-			}
-		case 0x00:
-			// pass
-		default:
-			emuErr(fmt.Sprintf("rom bank switch or nop writes unimplemented for mapper 0x%02x: write(0x%04x, 0x%02x)", emu.Mem.MapperNum, addr, val))
 		}
 
 	default:
