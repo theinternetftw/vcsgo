@@ -118,13 +118,7 @@ func (emu *emuState) read(addr uint16) byte {
 		case 0x4, 0x06: // 0x284, 0x286
 			val = emu.Timer.readINTIM()
 		case 0x5, 0x07: // 0x285, 0x287
-			val = byteFromBools(
-				emu.Timer.UnderflowSinceLastWriteAnyTIMT,
-				emu.Timer.UnderflowSinceLastReadINSTAT,
-				false, false, false, false, false, false,
-			)
-			emu.Timer.UnderflowSinceLastReadINSTAT = false
-			val = emu.Timer.readINTIM()
+			val = emu.Timer.readINSTAT()
 		default:
 			emuErr(fmt.Sprintf("impossible io read 0x%04x 0x%04x", addr, maskedAddr))
 		}
@@ -332,13 +326,10 @@ func (emu *emuState) write(addr uint16, val byte) {
 				emu.TIA.BL.Vx = int8(val&0xf0) >> 4
 			case 0x25:
 				emu.TIA.DelayGRP0 = val&0x01 != 0
-				// TODO: reset latches when delay is set?
 			case 0x26:
 				emu.TIA.DelayGRP1 = val&0x01 != 0
-				// TODO: reset latches when delay is set?
 			case 0x27:
 				emu.TIA.DelayGRBL = val&0x01 != 0
-				// TODO: reset latches when delay is set?
 			case 0x28:
 				emu.TIA.HideM0 = val&0x02 != 0
 			case 0x29:

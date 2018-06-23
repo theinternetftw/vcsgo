@@ -58,6 +58,7 @@ type timer struct {
 	Val                            byte
 	Interval                       int
 	BaseClock                      int
+	Underflow                      bool
 	UnderflowSinceLastReadINTIM    bool
 	UnderflowSinceLastReadINSTAT   bool
 	UnderflowSinceLastWriteAnyTIMT bool
@@ -65,7 +66,7 @@ type timer struct {
 
 func (t *timer) runCycle() {
 	t.BaseClock++
-	if t.BaseClock >= t.Interval || t.UnderflowSinceLastReadINTIM {
+	if t.BaseClock >= t.Interval || t.Underflow {
 		t.BaseClock = 0
 		t.decTimer()
 	}
@@ -74,6 +75,7 @@ func (t *timer) runCycle() {
 func (t *timer) decTimer() {
 	t.Val--
 	if t.Val == 255 {
+		t.Underflow = true
 		t.UnderflowSinceLastReadINTIM = true
 		t.UnderflowSinceLastReadINSTAT = true
 		t.UnderflowSinceLastWriteAnyTIMT = true
@@ -85,15 +87,27 @@ func (t *timer) writeAnyTIMT(interval int, val byte) {
 	t.BaseClock = 0
 	t.Interval = interval
 	t.UnderflowSinceLastWriteAnyTIMT = false
-	t.decTimer()
+	t.Underflow = false
+	// t.runCycle() // NOTE: does this happen?
 }
 
 func (t *timer) readINTIM() byte {
-	if t.UnderflowSinceLastReadINTIM {
-		t.UnderflowSinceLastReadINTIM = false
-		t.BaseClock = 0
+	t.UnderflowSinceLastReadINTIM = false
+	if t.Underflow {
+		t.Underflow = false
+		t.BaseClock = 0 // NOTE: is this right?
 	}
 	return t.Val
+}
+
+func (t *timer) readINSTAT() byte {
+	val := byteFromBools(
+		t.UnderflowSinceLastWriteAnyTIMT,
+		t.UnderflowSinceLastReadINSTAT,
+		false, false, false, false, false, false,
+	)
+	t.UnderflowSinceLastReadINSTAT = false
+	return val
 }
 
 func (emu *emuState) flipRequested() bool {
