@@ -3,6 +3,8 @@ package vcsgo
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/theinternetftw/cpugo/virt6502"
 )
@@ -34,6 +36,7 @@ type emuState struct {
 	Input           Input
 	LastKeyState    [256]bool
 	DebugKeyPressed bool
+	DebugKeyVal     byte
 
 	Input03TiedToLow bool
 
@@ -115,29 +118,97 @@ func (emu *emuState) runCycles(cycles uint) {
 	}
 }
 
+var dbgCmdStr = []byte{}
+
+type dbgCmdType int
+
+const (
+	cmdStep = iota
+	cmdRunto
+)
+
+type dbgCmd struct {
+	cType dbgCmdType
+	argPC uint16
+}
+
+func getCmd(cmdStr string) (dbgCmd, error) {
+	parts := strings.Split(string(cmdStr), " ")
+	if len(parts) == 1 && (parts[0] == "" || parts[0] == "s") {
+		return dbgCmd{cmdStep, 0}, nil
+	}
+	if parts[0] == "r" {
+		if len(parts) < 2 {
+			return dbgCmd{}, fmt.Errorf("need pc arg")
+		}
+		i, err := strconv.ParseUint(parts[1], 16, 16)
+		if err != nil {
+			return dbgCmd{}, fmt.Errorf("bad pc arg: %v", err)
+		}
+		return dbgCmd{cmdRunto, uint16(i)}, nil
+	}
+	return dbgCmd{}, fmt.Errorf("unknown command %q", parts[0])
+}
+
 func (emu *emuState) step() {
 
-	// single step w/ debug printout
-	if !emu.CPU.RESET {
-		/*
-			if !cs.DebugKeyPressed {
-				cs.runCycles(1)
-				return
-			}
-		*/
+	/*
+		// single step w/ debug printout
+		if !emu.DebugKeyPressed {
+			//emu.runCycles(1)
+			return
+		}
+
 		emu.DebugKeyPressed = false
-		if showMemReads {
+		if emu.DebugKeyVal != '\r' {
+			fmt.Printf("%c", emu.DebugKeyVal)
+			dbgCmdStr = append(dbgCmdStr, emu.DebugKeyVal)
+			return
+		}
+
+		if len(dbgCmdStr) > 0 {
 			fmt.Println()
 		}
-		//fmt.Println(emu.CPU.DebugStatusLine())
-	}
+		cmdStr := string(dbgCmdStr)
+		dbgCmdStr = dbgCmdStr[:0]
 
+		if cmd, err := getCmd(cmdStr); err != nil {
+			fmt.Printf("* ERR - %v\n", err)
+			return
+		} else if cmd.cType == cmdStep {
+			fmt.Println(emu.debugStatusLine())
+		} else if cmd.cType == cmdRunto {
+			fmt.Printf("running to 0x%04x", cmd.argPC)
+			for emu.CPU.PC != uint16(cmd.argPC) {
+				emu.stepNoDbg()
+			}
+			fmt.Println(emu.debugStatusLine())
+		} else {
+			fmt.Println("* ERR - unknown BUT PARSED command")
+			return
+		}
+
+		//if showMemReads { fmt.Println() }
+	*/
+
+	emu.stepNoDbg()
+}
+
+func (emu *emuState) stepNoDbg() {
 	if emu.TIA.WaitForHBlank {
 		emu.TIA.runCycle() // 1 or 3? does it re-sync the clock?
 		return
 	}
 
 	emu.CPU.Step()
+}
+
+func (emu *emuState) debugStatusLine() string {
+	return fmt.Sprintf("%sT:0x%02x Tstep:0x%04x",
+		emu.CPU.DebugStatusLine(),
+		emu.Timer.Val,
+		emu.Timer.Interval,
+	)
 }
 
 func (emu *emuState) updateInput(input Input) {
@@ -149,6 +220,7 @@ func (emu *emuState) updateInput(input Input) {
 		}
 		if !emu.LastKeyState[i] && down {
 			emu.DebugKeyPressed = true
+			emu.DebugKeyVal = byte(i)
 		}
 		emu.LastKeyState[i] = down
 	}
