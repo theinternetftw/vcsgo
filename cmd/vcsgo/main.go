@@ -28,7 +28,7 @@ func main() {
 	emu = vcsgo.NewEmulator(cartBytes)
 
 	screenW := 160
-	screenH := 192
+	screenH := 222
 	platform.InitDisplayLoop("vcsgo", screenW*2+40, screenH*2+40, screenW, screenH, func(sharedState *platform.WindowState) {
 		startEmu(cartFilename, sharedState, emu)
 	})
@@ -60,6 +60,9 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 			window.CopyKeyCharArray(newInput.Keys[:])
 			if window.CodeIsDown(key.CodeF1) {
 				newInput.ResetButton = true
+			}
+			if window.CodeIsDown(key.CodeF2) {
+				newInput.SelectButton = true
 			}
 			newInput.JoyP0.Up = window.CodeIsDown(key.CodeUpArrow)
 			newInput.JoyP0.Down = window.CodeIsDown(key.CodeDownArrow)
@@ -121,12 +124,12 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 			window.Mutex.Unlock()
 		}
 
-		msFloat := float32(emu.GetCycles()-lastSleepCycles)/cyclesPerSecond*1000
-		expectedTime := time.Duration(msFloat)*time.Millisecond
+		msInt := 1000*int64(emu.GetCycles()-lastSleepCycles)/int64(cyclesPerSecond)
+		expectedTime := time.Duration(msInt)*time.Millisecond
 		wallTime := time.Now().Sub(lastSleepTime)
 		if wallTime-expectedTime > 2*time.Millisecond {
-			timer.Reset(2*time.Millisecond)
-			<-timer.C
+			//timer.Reset(2*time.Millisecond)
+			//<-timer.C
 			lastSleepTime = time.Now()
 			lastSleepCycles = emu.GetCycles()
 		}

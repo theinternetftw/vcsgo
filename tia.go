@@ -1,7 +1,7 @@
 package vcsgo
 
 type tia struct {
-	Screen [160 * 192 * 4]byte
+	Screen [160 * 222 * 4]byte
 
 	ScreenX int
 	ScreenY int
@@ -316,83 +316,83 @@ func (tia *tia) runCycle() {
 		tia.InHBlank = false
 	}
 
-	if tia.ScreenY >= 0 && tia.ScreenY < 192 {
-		if tia.ScreenX >= 0 && tia.ScreenX < 160 {
+	if tia.ScreenX >= 0 && tia.ScreenX < 160 {
 
-			playfieldBit := tia.getPlayfieldBit()
-			ballBit := tia.getBallBit()
-			p0Bit := tia.getPlayerBit(&tia.P0, tia.DelayGRP0)
-			p1Bit := tia.getPlayerBit(&tia.P1, tia.DelayGRP1)
-			m0Bit := tia.getMissileBit(&tia.M0, &tia.P0)
-			m1Bit := tia.getMissileBit(&tia.M1, &tia.P1)
+		playfieldBit := tia.getPlayfieldBit()
+		ballBit := tia.getBallBit()
+		p0Bit := tia.getPlayerBit(&tia.P0, tia.DelayGRP0)
+		p1Bit := tia.getPlayerBit(&tia.P1, tia.DelayGRP1)
+		m0Bit := tia.getMissileBit(&tia.M0, &tia.P0)
+		m1Bit := tia.getMissileBit(&tia.M1, &tia.P1)
 
-			updateCollision := func(collision *bool, test bool) {
-				if test {
-					*collision = true
-				}
+		updateCollision := func(collision *bool, test bool) {
+			if test {
+				*collision = true
 			}
+		}
 
-			updateCollision(&tia.Collisions.BLPF, ballBit && playfieldBit)
+		updateCollision(&tia.Collisions.BLPF, ballBit && playfieldBit)
 
-			updateCollision(&tia.Collisions.P0PF, p0Bit && playfieldBit)
-			updateCollision(&tia.Collisions.P0BL, p0Bit && ballBit)
+		updateCollision(&tia.Collisions.P0PF, p0Bit && playfieldBit)
+		updateCollision(&tia.Collisions.P0BL, p0Bit && ballBit)
 
-			updateCollision(&tia.Collisions.M0P0, m0Bit && p0Bit)
-			updateCollision(&tia.Collisions.M0P1, m0Bit && p1Bit)
-			updateCollision(&tia.Collisions.M0PF, m0Bit && playfieldBit)
-			updateCollision(&tia.Collisions.M0BL, m0Bit && ballBit)
+		updateCollision(&tia.Collisions.M0P0, m0Bit && p0Bit)
+		updateCollision(&tia.Collisions.M0P1, m0Bit && p1Bit)
+		updateCollision(&tia.Collisions.M0PF, m0Bit && playfieldBit)
+		updateCollision(&tia.Collisions.M0BL, m0Bit && ballBit)
 
-			updateCollision(&tia.Collisions.P1PF, p1Bit && playfieldBit)
-			updateCollision(&tia.Collisions.P1BL, p1Bit && ballBit)
+		updateCollision(&tia.Collisions.P1PF, p1Bit && playfieldBit)
+		updateCollision(&tia.Collisions.P1BL, p1Bit && ballBit)
 
-			updateCollision(&tia.Collisions.M1P0, m1Bit && p0Bit)
-			updateCollision(&tia.Collisions.M1P1, m1Bit && p1Bit)
-			updateCollision(&tia.Collisions.M1PF, m1Bit && playfieldBit)
-			updateCollision(&tia.Collisions.M1BL, m1Bit && ballBit)
+		updateCollision(&tia.Collisions.M1P0, m1Bit && p0Bit)
+		updateCollision(&tia.Collisions.M1P1, m1Bit && p1Bit)
+		updateCollision(&tia.Collisions.M1PF, m1Bit && playfieldBit)
+		updateCollision(&tia.Collisions.M1BL, m1Bit && ballBit)
 
-			updateCollision(&tia.Collisions.P0P1, p0Bit && p1Bit)
-			updateCollision(&tia.Collisions.M0M1, m0Bit && m1Bit)
+		updateCollision(&tia.Collisions.P0P1, p0Bit && p1Bit)
+		updateCollision(&tia.Collisions.M0M1, m0Bit && m1Bit)
 
-			blShow := tia.BL.Show
-			if tia.DelayGRBL {
-				blShow = tia.BL.LatchedShow
-			}
+		blShow := tia.BL.Show
+		if tia.DelayGRBL {
+			blShow = tia.BL.LatchedShow
+		}
 
-			drawPFBL := playfieldBit || (ballBit && blShow)
-			drawP0M0 := p0Bit || (m0Bit && tia.M0.Show && !tia.HideM0)
-			drawP1M1 := p1Bit || (m1Bit && tia.M1.Show && !tia.HideM1)
+		drawPFBL := playfieldBit || (ballBit && blShow)
+		drawP0M0 := p0Bit || (m0Bit && tia.M0.Show && !tia.HideM0)
+		drawP1M1 := p1Bit || (m1Bit && tia.M1.Show && !tia.HideM1)
 
-			var colorLuma byte
-			if tia.InVBlank {
-				colorLuma = 0
-			} else if tia.PFAndBLHavePriority {
-				if drawPFBL {
-					colorLuma = tia.PlayfieldAndBallColorLuma
-				} else if drawP0M0 {
-					colorLuma = tia.P0.ColorLuma
-				} else if drawP1M1 {
-					colorLuma = tia.P1.ColorLuma
-				} else {
-					colorLuma = tia.BGColorLuma
-				}
+		var colorLuma byte
+		if tia.InVBlank {
+			colorLuma = 0
+		} else if tia.PFAndBLHavePriority {
+			if drawPFBL {
+				colorLuma = tia.PlayfieldAndBallColorLuma
+			} else if drawP0M0 {
+				colorLuma = tia.P0.ColorLuma
+			} else if drawP1M1 {
+				colorLuma = tia.P1.ColorLuma
 			} else {
-				if tia.PlayfieldScoreColorMode && playfieldBit {
-					if tia.ScreenX < 80 {
-						colorLuma = tia.P0.ColorLuma
-					} else {
-						colorLuma = tia.P1.ColorLuma
-					}
-				} else if drawP0M0 {
-					colorLuma = tia.P0.ColorLuma
-				} else if drawP1M1 {
-					colorLuma = tia.P1.ColorLuma
-				} else if drawPFBL {
-					colorLuma = tia.PlayfieldAndBallColorLuma
-				} else {
-					colorLuma = tia.BGColorLuma
-				}
+				colorLuma = tia.BGColorLuma
 			}
+		} else {
+			if tia.PlayfieldScoreColorMode && playfieldBit {
+				if tia.ScreenX < 80 {
+					colorLuma = tia.P0.ColorLuma
+				} else {
+					colorLuma = tia.P1.ColorLuma
+				}
+			} else if drawP0M0 {
+				colorLuma = tia.P0.ColorLuma
+			} else if drawP1M1 {
+				colorLuma = tia.P1.ColorLuma
+			} else if drawPFBL {
+				colorLuma = tia.PlayfieldAndBallColorLuma
+			} else {
+				colorLuma = tia.BGColorLuma
+			}
+		}
 
+		if tia.ScreenY >= 0 && tia.ScreenY < 222 {
 			tia.drawColor(colorLuma)
 		}
 	}
