@@ -227,7 +227,7 @@ func (emu *emuState) step() {
 
 func (emu *emuState) stepNoDbg() {
 	if emu.TIA.WaitForHBlank {
-		emu.TIA.runCycle() // 1 or 3? does it re-sync the clock?
+		emu.runCycles(1) // 1 or 3? does it re-sync the clock?
 		return
 	}
 
