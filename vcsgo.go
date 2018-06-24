@@ -91,7 +91,7 @@ func (t *timer) writeAnyTIMT(interval int, val byte) {
 	t.Interval = interval
 	t.UnderflowSinceLastWriteAnyTIMT = false
 	t.Underflow = false
-	// t.runCycle() // NOTE: does this happen?
+	t.decTimer() // NOTE: does this happen now or the next tick after write?
 }
 
 func (t *timer) readINTIM() byte {
