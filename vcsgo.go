@@ -33,10 +33,13 @@ type emuState struct {
 
 	Timer timer
 
-	Input           Input
-	LastKeyState    [256]bool
+	Input        Input
+	LastKeyState [256]bool
+
 	DebugKeyPressed bool
 	DebugKeyVal     byte
+	DebugContinue   bool
+	DebugCmdStr     []byte
 
 	Input03TiedToLow bool
 
@@ -132,67 +135,81 @@ func (emu *emuState) runCycles(cycles uint) {
 	}
 }
 
-var dbgCmdStr = []byte{}
-
-type dbgCmdType int
+type debugCmdType int
 
 const (
 	cmdStep = iota
 	cmdRunto
+	cmdContinue
 )
 
-type dbgCmd struct {
-	cType dbgCmdType
+type debugCmd struct {
+	cType debugCmdType
 	argPC uint16
 }
 
-func getCmd(cmdStr string) (dbgCmd, error) {
+func getCmd(cmdStr string) (debugCmd, error) {
 	parts := strings.Split(string(cmdStr), " ")
 	if len(parts) == 1 && (parts[0] == "" || parts[0] == "s") {
-		return dbgCmd{cmdStep, 0}, nil
+		return debugCmd{cmdStep, 0}, nil
 	}
-	if parts[0] == "r" {
+	switch parts[0] {
+	case "c":
+		if len(parts) > 1 {
+			return debugCmd{}, fmt.Errorf("continue takes no args")
+		}
+		return debugCmd{cmdContinue, 0}, nil
+	case "r":
 		if len(parts) < 2 {
-			return dbgCmd{}, fmt.Errorf("need pc arg")
+			return debugCmd{}, fmt.Errorf("need pc arg")
 		}
 		i, err := strconv.ParseUint(parts[1], 16, 16)
 		if err != nil {
-			return dbgCmd{}, fmt.Errorf("bad pc arg: %v", err)
+			return debugCmd{}, fmt.Errorf("bad pc arg: %v", err)
 		}
-		return dbgCmd{cmdRunto, uint16(i)}, nil
+		return debugCmd{cmdRunto, uint16(i)}, nil
+	default:
+		return debugCmd{}, fmt.Errorf("unknown command %q", parts[0])
 	}
-	return dbgCmd{}, fmt.Errorf("unknown command %q", parts[0])
 }
 
 func (emu *emuState) step() {
 
-	/*
+	if emu.DebugKeyVal == '`' {
+		emu.DebugKeyPressed = false
+		emu.DebugContinue = false
+		return
+	}
+
+	if !emu.DebugContinue {
 		// single step w/ debug printout
 		if !emu.DebugKeyPressed {
 			//emu.runCycles(1)
 			return
 		}
-
 		emu.DebugKeyPressed = false
+
 		if emu.DebugKeyVal != '\r' {
 			fmt.Printf("%c", emu.DebugKeyVal)
-			dbgCmdStr = append(dbgCmdStr, emu.DebugKeyVal)
+			emu.DebugCmdStr = append(emu.DebugCmdStr, emu.DebugKeyVal)
 			return
 		}
 
-		if len(dbgCmdStr) > 0 {
+		if len(emu.DebugCmdStr) > 0 {
 			fmt.Println()
 		}
-		cmdStr := string(dbgCmdStr)
-		dbgCmdStr = dbgCmdStr[:0]
+		cmdStr := string(emu.DebugCmdStr)
+		emu.DebugCmdStr = emu.DebugCmdStr[:0]
 
 		if cmd, err := getCmd(cmdStr); err != nil {
 			fmt.Printf("* ERR - %v\n", err)
 			return
+		} else if cmd.cType == cmdContinue {
+			emu.DebugContinue = true
 		} else if cmd.cType == cmdStep {
 			fmt.Println(emu.debugStatusLine())
 		} else if cmd.cType == cmdRunto {
-			fmt.Printf("running to 0x%04x", cmd.argPC)
+			fmt.Printf("running to 0x%04x\n", cmd.argPC)
 			for emu.CPU.PC != uint16(cmd.argPC) {
 				emu.stepNoDbg()
 			}
@@ -201,9 +218,9 @@ func (emu *emuState) step() {
 			fmt.Println("* ERR - unknown BUT PARSED command")
 			return
 		}
+	}
 
-		//if showMemReads { fmt.Println() }
-	*/
+	//if showMemReads { fmt.Println() }
 
 	emu.stepNoDbg()
 }
