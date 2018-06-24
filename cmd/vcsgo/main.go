@@ -37,9 +37,7 @@ func main() {
 func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator) {
 
 	// FIXME: settings are for debug right now
-	lastSleepTime := time.Now()
-	lastSleepCycles := uint64(0)
-	cyclesPerSecond := float32(emu.GetCyclesPerSecond())
+	lastFlipTime := time.Now()
 
 	snapshotPrefix := filename + ".snapshot"
 
@@ -122,16 +120,10 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 			copy(window.Pix, emu.Framebuffer())
 			window.RequestDraw()
 			window.Mutex.Unlock()
-		}
-
-		msInt := 1000*int64(emu.GetCycles()-lastSleepCycles)/int64(cyclesPerSecond)
-		expectedTime := time.Duration(msInt)*time.Millisecond
-		wallTime := time.Now().Sub(lastSleepTime)
-		if wallTime-expectedTime > 2*time.Millisecond {
-			//timer.Reset(2*time.Millisecond)
-			//<-timer.C
-			lastSleepTime = time.Now()
-			lastSleepCycles = emu.GetCycles()
+			now := time.Now()
+			toSleep := 17*time.Millisecond - now.Sub(lastFlipTime)
+			lastFlipTime = now
+			time.Sleep(toSleep)
 		}
 	}
 }
