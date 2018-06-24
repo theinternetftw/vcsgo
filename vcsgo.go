@@ -283,7 +283,7 @@ func (emu *emuState) ReadSoundBuffer(toFill []byte) []byte {
 func newState(cart []byte) *emuState {
 	emu := emuState{
 		Mem: mem{
-			ROM: cart,
+			rom: cart,
 		},
 		Timer: timer{
 			Interval: 1,
