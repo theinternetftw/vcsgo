@@ -5,6 +5,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/theinternetftw/cpugo/virt6502"
 )
@@ -235,10 +236,12 @@ func (emu *emuState) stepNoDbg() {
 }
 
 func (emu *emuState) debugStatusLine() string {
-	return fmt.Sprintf("%sT:0x%02x Tstep:0x%04x",
+	return fmt.Sprintf("%sT:0x%02x Tstep:%04d, Bx:%02x Bvx:%02d",
 		emu.CPU.DebugStatusLine(),
 		emu.Timer.Val,
 		emu.Timer.Interval,
+		emu.TIA.BL.X,
+		emu.TIA.BL.Vx,
 	)
 }
 
@@ -280,13 +283,21 @@ func (emu *emuState) ReadSoundBuffer(toFill []byte) []byte {
 	return emu.APU.buffer.read(toFill)
 }
 
+func getUnsecureRandomByte() byte {
+	return byte(time.Now().UnixNano() / 1000000)
+}
+
 func newState(cart []byte) *emuState {
 	emu := emuState{
 		Mem: mem{
 			rom: cart,
 		},
 		Timer: timer{
-			Interval: 1,
+			Interval: 1024,
+			// NOTE: correct and important for
+			// random number generation in games,
+			// but lets have consistency first
+			//Val: getUnsecureRandomByte(),
 		},
 		TIA: tia{
 			ScreenX:  -68,
