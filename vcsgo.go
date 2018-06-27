@@ -142,6 +142,7 @@ const (
 	cmdStep = iota
 	cmdRunto
 	cmdContinue
+	cmdDisplay
 )
 
 type debugCmd struct {
@@ -160,6 +161,11 @@ func getCmd(cmdStr string) (debugCmd, error) {
 			return debugCmd{}, fmt.Errorf("continue takes no args")
 		}
 		return debugCmd{cmdContinue, 0}, nil
+	case "d":
+		if len(parts) > 1 {
+			return debugCmd{}, fmt.Errorf("display takes no args")
+		}
+		return debugCmd{cmdDisplay, 0}, nil
 	case "r":
 		if len(parts) < 2 {
 			return debugCmd{}, fmt.Errorf("need pc arg")
@@ -207,6 +213,9 @@ func (emu *emuState) step() {
 			return
 		} else if cmd.cType == cmdContinue {
 			emu.DebugContinue = true
+		} else if cmd.cType == cmdDisplay {
+			fmt.Println(emu.debugStatusLine())
+			return
 		} else if cmd.cType == cmdStep {
 			fmt.Println(emu.debugStatusLine())
 		} else if cmd.cType == cmdRunto {
