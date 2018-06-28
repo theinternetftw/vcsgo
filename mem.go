@@ -167,127 +167,123 @@ func (emu *emuState) write(addr uint16, val byte) {
 
 		maskedAddr := addr & 0x3f
 
-		if addr <= 0x2c {
-			switch maskedAddr {
-			case 0x00:
-				emu.TIA.InVSync = val&0x02 != 0
-			case 0x01:
-				wasLatched := emu.Input45LatchMode
-				emu.Input45LatchMode = val&0x40 != 0
-				if !(wasLatched && emu.Input45LatchMode) {
-					emu.Input4LatchVal = true
-					emu.Input5LatchVal = true
-				}
-
-				// TODO: paddle controllers, 3button adapter
-				emu.Input03TiedToLow = val&0x80 != 0
-
-				emu.TIA.InVBlank = val&0x02 != 0
-			case 0x02:
-				emu.TIA.WaitForHBlank = true
-			case 0x03:
-				emu.TIA.resetHorizCounter()
-			case 0x04:
-				emu.TIA.P0.RepeatMode = val & 0x07
-				emu.TIA.M0.Size = 1 << ((val >> 4) & 3)
-			case 0x05:
-				emu.TIA.P1.RepeatMode = val & 0x07
-				emu.TIA.M1.Size = 1 << ((val >> 4) & 3)
-			case 0x06:
-				emu.TIA.P0.ColorLuma = val & 0xfe
-				emu.TIA.M0.ColorLuma = val & 0xfe
-			case 0x07:
-				emu.TIA.P1.ColorLuma = val & 0xfe
-				emu.TIA.M1.ColorLuma = val & 0xfe
-			case 0x08:
-				emu.TIA.PlayfieldAndBallColorLuma = val & 0xfe
-			case 0x09:
-				emu.TIA.BGColorLuma = val & 0xfe
-			case 0x0a:
-				boolsFromByte(val,
-					nil, nil, nil, nil, nil,
-					&emu.TIA.PFAndBLHavePriority,
-					&emu.TIA.PlayfieldScoreColorMode,
-					&emu.TIA.PlayfieldReflect,
-				)
-				emu.TIA.BL.Size = 1 << ((val >> 4) & 3)
-			case 0x0b:
-				emu.TIA.P0.Reflect = val&0x08 != 0
-			case 0x0c:
-				emu.TIA.P1.Reflect = val&0x08 != 0
-			case 0x0d:
-				emu.TIA.Playfield &^= 0x0f0000
-				emu.TIA.Playfield |= uint32(reverseByte(val)&0x0f) << 16
-			case 0x0e:
-				emu.TIA.Playfield &^= 0x00ff00
-				emu.TIA.Playfield |= uint32(val) << 8
-			case 0x0f:
-				emu.TIA.Playfield &^= 0x0000ff
-				emu.TIA.Playfield |= uint32(reverseByte(val))
-
-			case 0x10:
-				emu.TIA.resetPlayer(&emu.TIA.P0)
-			case 0x11:
-				emu.TIA.resetPlayer(&emu.TIA.P1)
-			case 0x12:
-				emu.TIA.resetMissile(&emu.TIA.M0)
-			case 0x13:
-				emu.TIA.resetMissile(&emu.TIA.M1)
-			case 0x14:
-				emu.TIA.resetBall(&emu.TIA.BL)
-
-			case 0x15:
-				emu.APU.Channel0.Control = val & 0x0f
-			case 0x16:
-				emu.APU.Channel1.Control = val & 0x0f
-			case 0x17:
-				emu.APU.Channel0.FreqDiv = val & 0x1f
-			case 0x18:
-				emu.APU.Channel1.FreqDiv = val & 0x1f
-			case 0x19:
-				emu.APU.Channel0.Volume = val & 0x0f
-			case 0x1a:
-				emu.APU.Channel1.Volume = val & 0x0f
-
-			case 0x1b:
-				emu.TIA.loadShapeP0(val)
-			case 0x1c:
-				emu.TIA.loadShapeP1(val)
-			case 0x1d:
-				emu.TIA.M0.Show = val&0x02 != 0
-			case 0x1e:
-				emu.TIA.M1.Show = val&0x02 != 0
-			case 0x1f:
-				emu.TIA.loadEnablBL(val&0x02 != 0)
-			case 0x20:
-				emu.TIA.P0.Vx = int8(val&0xf0) >> 4
-			case 0x21:
-				emu.TIA.P1.Vx = int8(val&0xf0) >> 4
-			case 0x22:
-				emu.TIA.M0.Vx = int8(val&0xf0) >> 4
-			case 0x23:
-				emu.TIA.M1.Vx = int8(val&0xf0) >> 4
-			case 0x24:
-				emu.TIA.BL.Vx = int8(val&0xf0) >> 4
-			case 0x25:
-				emu.TIA.DelayGRP0 = val&0x01 != 0
-			case 0x26:
-				emu.TIA.DelayGRP1 = val&0x01 != 0
-			case 0x27:
-				emu.TIA.DelayGRBL = val&0x01 != 0
-			case 0x28:
-				emu.TIA.HideM0 = val&0x02 != 0
-			case 0x29:
-				emu.TIA.HideM1 = val&0x02 != 0
-			case 0x2a:
-				emu.TIA.applyHorizMotion()
-			case 0x2b:
-				emu.TIA.clearHorizMotion()
-			case 0x2c:
-				emu.TIA.clearCollisions()
-			default:
-				emuErr(fmt.Sprintf("TODO: tia write 0x%04x 0x%04x", addr, maskedAddr))
+		switch maskedAddr {
+		case 0x00:
+			emu.TIA.InVSync = val&0x02 != 0
+		case 0x01:
+			wasLatched := emu.Input45LatchMode
+			emu.Input45LatchMode = val&0x40 != 0
+			if !(wasLatched && emu.Input45LatchMode) {
+				emu.Input4LatchVal = true
+				emu.Input5LatchVal = true
 			}
+
+			// TODO: paddle controllers, 3button adapter
+			emu.Input03TiedToLow = val&0x80 != 0
+
+			emu.TIA.InVBlank = val&0x02 != 0
+		case 0x02:
+			emu.TIA.WaitForHBlank = true
+		case 0x03:
+			emu.TIA.resetHorizCounter()
+		case 0x04:
+			emu.TIA.P0.RepeatMode = val & 0x07
+			emu.TIA.M0.RepeatMode = val & 0x07
+			emu.TIA.M0.Size = 1 << ((val >> 4) & 3)
+		case 0x05:
+			emu.TIA.P1.RepeatMode = val & 0x07
+			emu.TIA.M1.RepeatMode = val & 0x07
+			emu.TIA.M1.Size = 1 << ((val >> 4) & 3)
+		case 0x06:
+			emu.TIA.P0.ColorLuma = val & 0xfe
+		case 0x07:
+			emu.TIA.P1.ColorLuma = val & 0xfe
+		case 0x08:
+			emu.TIA.PlayfieldAndBallColorLuma = val & 0xfe
+		case 0x09:
+			emu.TIA.BGColorLuma = val & 0xfe
+		case 0x0a:
+			boolsFromByte(val,
+				nil, nil, nil, nil, nil,
+				&emu.TIA.PFAndBLHavePriority,
+				&emu.TIA.PlayfieldScoreColorMode,
+				&emu.TIA.PlayfieldReflect,
+			)
+			emu.TIA.BL.Size = 1 << ((val >> 4) & 3)
+		case 0x0b:
+			emu.TIA.P0.Reflect = val&0x08 != 0
+		case 0x0c:
+			emu.TIA.P1.Reflect = val&0x08 != 0
+		case 0x0d:
+			emu.TIA.Playfield &^= 0x0f0000
+			emu.TIA.Playfield |= uint32(reverseByte(val)&0x0f) << 16
+		case 0x0e:
+			emu.TIA.Playfield &^= 0x00ff00
+			emu.TIA.Playfield |= uint32(val) << 8
+		case 0x0f:
+			emu.TIA.Playfield &^= 0x0000ff
+			emu.TIA.Playfield |= uint32(reverseByte(val))
+
+		case 0x10:
+			emu.TIA.resetP0()
+		case 0x11:
+			emu.TIA.resetP1()
+		case 0x12:
+			emu.TIA.resetM0()
+		case 0x13:
+			emu.TIA.resetM1()
+		case 0x14:
+			emu.TIA.resetBL()
+
+		case 0x15:
+			emu.APU.Channel0.Control = val & 0x0f
+		case 0x16:
+			emu.APU.Channel1.Control = val & 0x0f
+		case 0x17:
+			emu.APU.Channel0.FreqDiv = val & 0x1f
+		case 0x18:
+			emu.APU.Channel1.FreqDiv = val & 0x1f
+		case 0x19:
+			emu.APU.Channel0.Volume = val & 0x0f
+		case 0x1a:
+			emu.APU.Channel1.Volume = val & 0x0f
+
+		case 0x1b:
+			emu.TIA.loadShapeP0(val)
+		case 0x1c:
+			emu.TIA.loadShapeP1(val)
+		case 0x1d:
+			emu.TIA.M0.Show = val&0x02 != 0
+		case 0x1e:
+			emu.TIA.M1.Show = val&0x02 != 0
+		case 0x1f:
+			emu.TIA.loadEnablBL(val&0x02 != 0)
+		case 0x20:
+			emu.TIA.P0.Vx = int8(val&0xf0) >> 4
+		case 0x21:
+			emu.TIA.P1.Vx = int8(val&0xf0) >> 4
+		case 0x22:
+			emu.TIA.M0.Vx = int8(val&0xf0) >> 4
+		case 0x23:
+			emu.TIA.M1.Vx = int8(val&0xf0) >> 4
+		case 0x24:
+			emu.TIA.BL.Vx = int8(val&0xf0) >> 4
+		case 0x25:
+			emu.TIA.DelayGRP0 = val&0x01 != 0
+		case 0x26:
+			emu.TIA.DelayGRP1 = val&0x01 != 0
+		case 0x27:
+			emu.TIA.DelayGRBL = val&0x01 != 0
+		case 0x28:
+			emu.TIA.HideM0 = val&0x02 != 0
+		case 0x29:
+			emu.TIA.HideM1 = val&0x02 != 0
+		case 0x2a:
+			emu.TIA.applyHorizMotion()
+		case 0x2b:
+			emu.TIA.clearHorizMotion()
+		case 0x2c:
+			emu.TIA.clearCollisions()
 		}
 
 	case !bitOn(12) && !bitOn(9) && bitOn(7):
