@@ -96,25 +96,25 @@ func (tia *tia) resetBL() { tia.resetBall(&tia.BL) }
 
 func (tia *tia) resetPlayer(player *sprite) {
 	if tia.InHBlank {
-		player.X = 4
+		player.X = 3
 	} else {
 		player.ResetRequested = true
-		player.ResetX = byte(tia.ScreenX+9) % 160
+		player.ResetX = byte(tia.ScreenX+5) % 160
 	}
 }
 func (tia *tia) resetMissile(missile *sprite) {
 	if tia.InHBlank {
-		missile.X = 3
+		missile.X = 2
 	} else {
 		missile.ResetRequested = true
-		missile.ResetX = byte(tia.ScreenX+9) % 160
+		missile.ResetX = byte(tia.ScreenX+4) % 160
 	}
 }
 func (tia *tia) resetBall(ball *sprite) {
 	if tia.InHBlank {
-		ball.X = 3
+		ball.X = 2
 	} else {
-		ball.X = byte(tia.ScreenX+9) % 160
+		ball.X = byte(tia.ScreenX+4) % 160
 	}
 }
 
@@ -222,9 +222,9 @@ func (tia *tia) getPlayerBit(player *sprite, delay bool) bool {
 	return (shape<<shapeX)&0x80 == 0x80
 }
 
-func (tia *tia) getMissileBit(missile, player *sprite) bool {
+func (tia *tia) getMissileBit(missile *sprite) bool {
 
-	row := repeatModeTable[player.RepeatMode]
+	row := repeatModeTable[missile.RepeatMode]
 	mX := tia.ScreenX - int(missile.X)
 	if mX < 0 || mX >= 9*8 {
 		return false
@@ -252,13 +252,14 @@ func (tia *tia) drawColor(colorLuma byte) {
 func (s *sprite) lockMissileToPlayer(player *sprite) {
 	s.X = player.X
 	if player.RepeatMode == 5 {
-		s.X += 3
+		s.X += 8
 	} else if player.RepeatMode == 7 {
-		s.X += 5
+		s.X += 16
 	} else {
-		s.X += 10
+		s.X += 4
 	}
 	// TODO: should it wrap?
+	s.X %= 160
 }
 
 func (s *sprite) updateFromReset() {
