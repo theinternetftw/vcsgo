@@ -318,12 +318,17 @@ func (tia *tia) runCycle() {
 
 	if tia.ScreenX >= 0 && tia.ScreenX < 160 {
 
+		blShow := tia.BL.Show
+		if tia.DelayGRBL {
+			blShow = tia.BL.LatchedShow
+		}
+
 		playfieldBit := tia.getPlayfieldBit()
-		ballBit := tia.getBallBit()
+		ballBit := tia.getBallBit() && blShow
 		p0Bit := tia.getPlayerBit(&tia.P0, tia.DelayGRP0)
 		p1Bit := tia.getPlayerBit(&tia.P1, tia.DelayGRP1)
-		m0Bit := tia.getMissileBit(&tia.M0, &tia.P0)
-		m1Bit := tia.getMissileBit(&tia.M1, &tia.P1)
+		m0Bit := tia.getMissileBit(&tia.M0) && tia.M0.Show && !tia.HideM0
+		m1Bit := tia.getMissileBit(&tia.M1) && tia.M1.Show && !tia.HideM1
 
 		updateCollision := func(collision *bool, test bool) {
 			if test {
@@ -352,14 +357,9 @@ func (tia *tia) runCycle() {
 		updateCollision(&tia.Collisions.P0P1, p0Bit && p1Bit)
 		updateCollision(&tia.Collisions.M0M1, m0Bit && m1Bit)
 
-		blShow := tia.BL.Show
-		if tia.DelayGRBL {
-			blShow = tia.BL.LatchedShow
-		}
-
-		drawPFBL := playfieldBit || (ballBit && blShow)
-		drawP0M0 := p0Bit || (m0Bit && tia.M0.Show && !tia.HideM0)
-		drawP1M1 := p1Bit || (m1Bit && tia.M1.Show && !tia.HideM1)
+		drawPFBL := playfieldBit || ballBit
+		drawP0M0 := p0Bit || m0Bit
+		drawP1M1 := p1Bit || m1Bit
 
 		var colorLuma byte
 		if tia.InVBlank {
