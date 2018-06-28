@@ -56,17 +56,21 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 		window.Mutex.Lock()
 		{
 			window.CopyKeyCharArray(newInput.Keys[:])
-			if window.CodeIsDown(key.CodeF1) {
-				newInput.ResetButton = true
-			}
-			if window.CodeIsDown(key.CodeF2) {
-				newInput.SelectButton = true
-			}
-			newInput.JoyP0.Up = window.CodeIsDown(key.CodeUpArrow)
-			newInput.JoyP0.Down = window.CodeIsDown(key.CodeDownArrow)
-			newInput.JoyP0.Left = window.CodeIsDown(key.CodeLeftArrow)
-			newInput.JoyP0.Right = window.CodeIsDown(key.CodeRightArrow)
-			newInput.JoyP0.Button = window.CodeIsDown(key.CodeSpacebar)
+
+			newInput.ResetButton = window.CodeIsDown(key.CodeF1)
+			newInput.SelectButton = window.CodeIsDown(key.CodeF2)
+
+			newInput.JoyP0.Up = window.CodeIsDown(key.CodeW)
+			newInput.JoyP0.Down = window.CodeIsDown(key.CodeS)
+			newInput.JoyP0.Left = window.CodeIsDown(key.CodeA)
+			newInput.JoyP0.Right = window.CodeIsDown(key.CodeD)
+			newInput.JoyP0.Button = window.CodeIsDown(key.CodeJ)
+
+			newInput.JoyP1.Up = window.CodeIsDown(key.CodeUpArrow)
+			newInput.JoyP1.Down = window.CodeIsDown(key.CodeDownArrow)
+			newInput.JoyP1.Left = window.CodeIsDown(key.CodeLeftArrow)
+			newInput.JoyP1.Right = window.CodeIsDown(key.CodeRightArrow)
+			newInput.JoyP1.Button = window.CodeIsDown(key.CodeSpacebar)
 			/*
 			for r := '0'; r <= '9'; r++ {
 				if window.CharIsDown(r) {
