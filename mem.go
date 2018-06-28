@@ -240,9 +240,9 @@ func (emu *emuState) write(addr uint16, val byte) {
 		case 0x16:
 			emu.APU.Channel1.Control = val & 0x0f
 		case 0x17:
-			emu.APU.Channel0.FreqDiv = val & 0x1f
+			emu.APU.Channel0.FreqDiv = (val & 0x1f) + 1
 		case 0x18:
-			emu.APU.Channel1.FreqDiv = val & 0x1f
+			emu.APU.Channel1.FreqDiv = (val & 0x1f) + 1
 		case 0x19:
 			emu.APU.Channel0.Volume = val & 0x0f
 		case 0x1a:

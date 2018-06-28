@@ -132,6 +132,7 @@ func (emu *emuState) runCycles(cycles uint) {
 
 		for j := 0; j < 3; j++ {
 			emu.TIA.runCycle()
+			emu.APU.runCycle()
 		}
 	}
 }
@@ -322,6 +323,7 @@ func newState(cart []byte) *emuState {
 		Read:      emu.read,
 		Err:       func(e error) { emuErr(e) },
 	}
+	emu.APU.init()
 
 	return &emu
 }
