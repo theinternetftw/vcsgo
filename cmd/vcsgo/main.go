@@ -11,6 +11,8 @@ import (
 	"io/ioutil"
 	"os"
 	"time"
+
+	"runtime/debug"
 )
 
 func main() {
@@ -48,6 +50,13 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 
 	timer := time.NewTimer(0)
 	<-timer.C
+
+	maxRDiff := time.Duration(0)
+	maxFDiff := 0.0
+	frameCount := 0
+
+	lastNumGC := int64(0)
+	gcStats := debug.GCStats{}
 
 	for {
 		newInput := vcsgo.Input {}
@@ -131,10 +140,38 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 			copy(window.Pix, emu.Framebuffer())
 			window.RequestDraw()
 			window.Mutex.Unlock()
-			now := time.Now()
-			toSleep := 17*time.Millisecond - now.Sub(lastFlipTime)
-			lastFlipTime = now
-			time.Sleep(toSleep)
+
+			debug.ReadGCStats(&gcStats)
+			if gcStats.NumGC != lastNumGC {
+				lastNumGC = gcStats.NumGC
+				//fmt.Println("GC!")
+			}
+			frameCount++
+			if frameCount & 0x3f == 0 {
+				//fmt.Printf("maxRTime %.4f, maxFTime %.4f\n", maxRDiff.Seconds(), maxFDiff)
+				maxRDiff = 0
+				maxFDiff = 0
+			}
+
+			rDiff := time.Now().Sub(lastFlipTime)
+			toSleep := 15*time.Millisecond - rDiff
+			if toSleep > 2*time.Millisecond {
+				timer.Reset(toSleep)
+				<-timer.C
+			}
+
+			fDiff := 0.0
+			for fDiff < 0.0161 { // seems to be about 0.005 resolution? so leave a bit of play
+				fDiff = time.Now().Sub(lastFlipTime).Seconds()
+			}
+			if rDiff > maxRDiff {
+				maxRDiff = rDiff
+			}
+			if fDiff > maxFDiff {
+				maxFDiff = fDiff
+			}
+
+			lastFlipTime = time.Now()
 		}
 	}
 }
