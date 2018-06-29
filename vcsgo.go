@@ -258,10 +258,8 @@ func (emu *emuState) debugStatusLine() string {
 func (emu *emuState) updateInput(input Input) {
 
 	// just for debug
-	for i, down := range input.Keys {
-		if i > 127 {
-			continue
-		}
+	for i := 0; i < 128; i++ {
+		down := input.Keys[i]
 		if !emu.LastKeyState[i] && down {
 			emu.DebugKeyPressed = true
 			emu.DebugKeyVal = byte(i)
