@@ -8,7 +8,7 @@ type apu struct {
 
 	FreqClk int
 
-	SampleSum      float32
+	SampleSum      int
 	SampleSumCount int
 
 	// everything else marshalled
@@ -29,11 +29,11 @@ type sound struct {
 	FreqDivCounter    divCounter
 	SubFreqDivCounter divCounter
 	Div31Counter      divCounter
-	PolyCounter4      uint16
-	PolyCounter5      uint16
-	PolyCounter9      uint16
+	PolyCounter4      int
+	PolyCounter5      int
+	PolyCounter9      int
 
-	Out uint16
+	Out int
 }
 
 func (s *sound) init() {
@@ -96,7 +96,7 @@ func (s *sound) runFreqCycle() {
 	}
 }
 
-func (s *sound) runDiv31() uint16 {
+func (s *sound) runDiv31() int {
 	if s.Out == 1 {
 		if s.Div31Counter.tick(18) {
 			return 0
@@ -109,7 +109,7 @@ func (s *sound) runDiv31() uint16 {
 	return s.Out
 }
 
-func (s *sound) run4BitPoly() uint16 {
+func (s *sound) run4BitPoly() int {
 	out := s.PolyCounter4 & 1
 	s.PolyCounter4 >>= 1
 	s.PolyCounter4 &^= 0x08
@@ -118,7 +118,7 @@ func (s *sound) run4BitPoly() uint16 {
 	return out
 }
 
-func (s *sound) run5BitPoly() uint16 {
+func (s *sound) run5BitPoly() int {
 	out := s.PolyCounter5 & 1
 	s.PolyCounter5 >>= 1
 	s.PolyCounter5 &^= 0x10
@@ -127,7 +127,7 @@ func (s *sound) run5BitPoly() uint16 {
 	return out
 }
 
-func (s *sound) run9BitPoly() uint16 {
+func (s *sound) run9BitPoly() int {
 	out := s.PolyCounter9 & 1
 	s.PolyCounter9 >>= 1
 	s.PolyCounter9 &^= 0x100
@@ -137,7 +137,7 @@ func (s *sound) run9BitPoly() uint16 {
 }
 
 const (
-	amountGenerateAhead = 64 * 4
+	amountGenerateAhead = 32 * 4
 	samplesPerSecond    = 44100
 	timePerSample       = 1.0 / samplesPerSecond
 )
@@ -193,16 +193,17 @@ func (apu *apu) runCycle() {
 			apu.FreqClk = 0
 		}
 
-		c0 := apu.Channel0.Out * uint16(apu.Channel0.Volume)
-		c1 := apu.Channel1.Out * uint16(apu.Channel1.Volume)
-		c0Float := float32(c0) / 15.0
-		c1Float := float32(c1) / 15.0
+		c0 := apu.Channel0.Out * int(apu.Channel0.Volume)
+		c1 := apu.Channel1.Out * int(apu.Channel1.Volume)
 
-		apu.SampleSum += (c0Float + c1Float) / 2.0
+		apu.SampleSum += c0 + c1
 		apu.SampleSumCount++
 		countLimit := clocksPerSample // for trunc
 		if apu.SampleSumCount >= int(countLimit) {
-			output := apu.SampleSum / float32(apu.SampleSumCount)
+
+			sum := float32(apu.SampleSum) / 30.0 // 2 channels, 15 vol levels
+
+			output := sum / float32(apu.SampleSumCount)
 
 			apu.SampleSum = 0
 			apu.SampleSumCount = 0
