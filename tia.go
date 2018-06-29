@@ -41,10 +41,8 @@ type tia struct {
 }
 
 type sprite struct {
-	X              byte
-	Vx             int8
-	ResetRequested bool
-	ResetX         byte
+	X  byte
+	Vx int8
 
 	ColorLuma byte
 
@@ -98,16 +96,14 @@ func (tia *tia) resetPlayer(player *sprite) {
 	if tia.InHBlank {
 		player.X = 3
 	} else {
-		player.ResetRequested = true
-		player.ResetX = byte(tia.ScreenX+5) % 160
+		player.X = byte(tia.ScreenX+5) % 160
 	}
 }
 func (tia *tia) resetMissile(missile *sprite) {
 	if tia.InHBlank {
 		missile.X = 2
 	} else {
-		missile.ResetRequested = true
-		missile.ResetX = byte(tia.ScreenX+4) % 160
+		missile.X = byte(tia.ScreenX+4) % 160
 	}
 }
 func (tia *tia) resetBall(ball *sprite) {
@@ -262,20 +258,6 @@ func (s *sprite) lockMissileToPlayer(player *sprite) {
 	s.X %= 160
 }
 
-func (s *sprite) updateFromReset() {
-	if s.ResetRequested {
-		s.ResetRequested = false
-		s.X = s.ResetX
-	}
-}
-
-func (tia *tia) updatePositionsFromReset() {
-	tia.P0.updateFromReset()
-	tia.P1.updateFromReset()
-	tia.M0.updateFromReset()
-	tia.M1.updateFromReset()
-}
-
 func (tia *tia) runCycle() {
 
 	if !tia.WasInVSync && tia.InVSync {
@@ -312,7 +294,6 @@ func (tia *tia) runCycle() {
 			// out here at the end of the screen...
 			tia.ScreenY = 221
 		}
-		tia.updatePositionsFromReset()
 	} else if tia.ScreenX == 0 {
 		tia.InHBlank = false
 	}
