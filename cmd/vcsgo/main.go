@@ -38,6 +38,7 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 
 	// FIXME: settings are for debug right now
 	lastFlipTime := time.Now()
+	lastInputUpdateTime := time.Now()
 
 	snapshotPrefix := filename + ".snapshot"
 
@@ -53,65 +54,71 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 		snapshotMode := 'x'
 		numDown := 'x'
 
-		window.Mutex.Lock()
-		{
-			window.CopyKeyCharArray(newInput.Keys[:])
+		now := time.Now()
+		if now.Sub(lastInputUpdateTime).Seconds() > 0.001 {
+			window.Mutex.Lock()
+			{
+				window.CopyKeyCharArray(newInput.Keys[:])
 
-			newInput.ResetButton = window.CodeIsDown(key.CodeF1)
-			newInput.SelectButton = window.CodeIsDown(key.CodeF2)
+				newInput.ResetButton = window.CodeIsDown(key.CodeF1)
+				newInput.SelectButton = window.CodeIsDown(key.CodeF2)
 
-			newInput.JoyP0.Up = window.CodeIsDown(key.CodeW)
-			newInput.JoyP0.Down = window.CodeIsDown(key.CodeS)
-			newInput.JoyP0.Left = window.CodeIsDown(key.CodeA)
-			newInput.JoyP0.Right = window.CodeIsDown(key.CodeD)
-			newInput.JoyP0.Button = window.CodeIsDown(key.CodeJ)
+				newInput.JoyP0.Up = window.CodeIsDown(key.CodeW)
+				newInput.JoyP0.Down = window.CodeIsDown(key.CodeS)
+				newInput.JoyP0.Left = window.CodeIsDown(key.CodeA)
+				newInput.JoyP0.Right = window.CodeIsDown(key.CodeD)
+				newInput.JoyP0.Button = window.CodeIsDown(key.CodeJ)
 
-			newInput.JoyP1.Up = window.CodeIsDown(key.CodeUpArrow)
-			newInput.JoyP1.Down = window.CodeIsDown(key.CodeDownArrow)
-			newInput.JoyP1.Left = window.CodeIsDown(key.CodeLeftArrow)
-			newInput.JoyP1.Right = window.CodeIsDown(key.CodeRightArrow)
-			newInput.JoyP1.Button = window.CodeIsDown(key.CodeSpacebar)
-			/*
-			for r := '0'; r <= '9'; r++ {
-				if window.CharIsDown(r) {
-					numDown = r
-					break
+				newInput.JoyP1.Up = window.CodeIsDown(key.CodeUpArrow)
+				newInput.JoyP1.Down = window.CodeIsDown(key.CodeDownArrow)
+				newInput.JoyP1.Left = window.CodeIsDown(key.CodeLeftArrow)
+				newInput.JoyP1.Right = window.CodeIsDown(key.CodeRightArrow)
+				newInput.JoyP1.Button = window.CodeIsDown(key.CodeSpacebar)
+				/*
+				for r := '0'; r <= '9'; r++ {
+					if window.CharIsDown(r) {
+						numDown = r
+						break
+					}
+				}
+				if window.CharIsDown('m') {
+					snapshotMode = 'm'
+				} else if window.CharIsDown('l') {
+					snapshotMode = 'l'
+				}
+				*/
+			}
+			window.Mutex.Unlock()
+
+			if numDown > '0' && numDown <= '9' {
+				snapFilename := snapshotPrefix+string(numDown)
+				if snapshotMode == 'm' {
+					snapshotMode = 'x'
+					snapshot := emu.MakeSnapshot()
+					if len(snapshot) > 0 {
+						ioutil.WriteFile(snapFilename, snapshot, os.FileMode(0644))
+					}
+				} else if snapshotMode == 'l' {
+					snapshotMode = 'x'
+					snapBytes, err := ioutil.ReadFile(snapFilename)
+					if err != nil {
+						fmt.Println("failed to load snapshot:", err)
+						continue
+					}
+					newEmu, err := emu.LoadSnapshot(snapBytes)
+					if err != nil {
+						fmt.Println("failed to load snapshot:", err)
+						continue
+					}
+					emu = newEmu
 				}
 			}
-			if window.CharIsDown('m') {
-				snapshotMode = 'm'
-			} else if window.CharIsDown('l') {
-				snapshotMode = 'l'
-			}
-			*/
+
+			emu.UpdateInput(newInput)
+
+			lastInputUpdateTime = time.Now()
 		}
-		window.Mutex.Unlock()
 
-		if numDown > '0' && numDown <= '9' {
-			snapFilename := snapshotPrefix+string(numDown)
-			if snapshotMode == 'm' {
-				snapshotMode = 'x'
-				snapshot := emu.MakeSnapshot()
-				if len(snapshot) > 0 {
-					ioutil.WriteFile(snapFilename, snapshot, os.FileMode(0644))
-				}
-			} else if snapshotMode == 'l' {
-				snapshotMode = 'x'
-				snapBytes, err := ioutil.ReadFile(snapFilename)
-				if err != nil {
-					fmt.Println("failed to load snapshot:", err)
-					continue
-				}
-				newEmu, err := emu.LoadSnapshot(snapBytes)
-				if err != nil {
-					fmt.Println("failed to load snapshot:", err)
-					continue
-				}
-				emu = newEmu
-			}
-		}
-
-		emu.UpdateInput(newInput)
 		emu.Step()
 
 		bufferAvailable := audio.BufferAvailable()
