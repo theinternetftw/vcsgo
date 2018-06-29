@@ -2,10 +2,10 @@ package vcsgo
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/theinternetftw/cpugo/virt6502"
 )
@@ -291,10 +291,6 @@ func (emu *emuState) ReadSoundBuffer(toFill []byte) []byte {
 	return emu.APU.buffer.read(toFill)
 }
 
-func getUnsecureRandomByte() byte {
-	return byte(time.Now().UnixNano() / 1000000)
-}
-
 func newState(cart []byte) *emuState {
 	emu := emuState{
 		Mem: mem{
@@ -302,10 +298,12 @@ func newState(cart []byte) *emuState {
 		},
 		Timer: timer{
 			Interval: 1024,
+
 			// NOTE: correct and important for
 			// random number generation in games,
-			// but lets have consistency first
-			//Val: getUnsecureRandomByte(),
+			// still, lets have determinism every
+			// start for the moment.
+			Val: byte(rand.Uint32()),
 		},
 		TIA: tia{
 			ScreenX:  -68,
@@ -322,6 +320,10 @@ func newState(cart []byte) *emuState {
 		Err:       func(e error) { emuErr(e) },
 	}
 	emu.APU.init()
+
+	// NOTE: random fill the RAM, but but still keep it
+	// deterministic every start for the moment...
+	rand.Read(emu.Mem.RAM[:])
 
 	return &emu
 }
