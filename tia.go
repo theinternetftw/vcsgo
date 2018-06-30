@@ -15,6 +15,9 @@ type tia struct {
 	HideM0 bool
 	HideM1 bool
 
+	HMoveRequested   bool
+	HMoveCombEnabled bool
+
 	// loaded in such that a screen half is Bits 19-0
 	Playfield               uint32
 	PFAndBLHavePriority     bool
@@ -75,8 +78,8 @@ func (tia *tia) loadEnablBL(val bool) {
 	tia.BL.Show = val
 }
 
-func (s *sprite) move() {
-	x := int(s.X) - int(s.Vx)
+func (s *sprite) move(vx int8) {
+	x := int(s.X) - int(vx)
 	for x < 0 {
 		x += 160
 	}
@@ -133,11 +136,7 @@ func (tia *tia) clearCollisions() {
 }
 
 func (tia *tia) applyHorizMotion() {
-	tia.P0.move()
-	tia.P1.move()
-	tia.M0.move()
-	tia.M1.move()
-	tia.BL.move()
+	tia.HMoveRequested = true
 }
 
 func (tia *tia) clearHorizMotion() {
@@ -270,19 +269,39 @@ func (tia *tia) runCycle() {
 		tia.ScreenY = -37
 	}
 
-	if tia.HideM0 {
-		tia.M0.lockMissileToPlayer(&tia.P0)
-	}
-	if tia.HideM1 {
-		tia.M1.lockMissileToPlayer(&tia.P1)
-	}
-
 	if !tia.WasInVBlank && tia.InVBlank {
 		tia.WasInVBlank = true
 		//fmt.Printf("Enter VBlank at %3d", tia.ScreenY)
 	} else if tia.WasInVBlank && !tia.InVBlank {
 		tia.WasInVBlank = false
 		//fmt.Println(" / Exit VBlank at", tia.ScreenY)
+	}
+
+	if tia.HideM0 {
+		tia.M0.lockMissileToPlayer(&tia.P0)
+	}
+	if tia.HideM1 {
+		tia.M1.lockMissileToPlayer(&tia.P1)
+	}
+	if tia.HMoveRequested {
+		tia.HMoveRequested = false
+		if tia.InHBlank {
+			// tia.HMoveCombEnabled = true
+			tia.P0.move(tia.P0.Vx)
+			tia.P1.move(tia.P1.Vx)
+			tia.M0.move(tia.M0.Vx)
+			tia.M1.move(tia.M1.Vx)
+			tia.BL.move(tia.BL.Vx)
+		} else {
+			// FIXME: right now I'm just assuming that anything
+			// that's HMOVEing early is trying the no-comb trick,
+			// which is not necessarily true...
+			tia.P0.move(tia.P0.Vx + 8)
+			tia.P1.move(tia.P1.Vx + 8)
+			tia.M0.move(tia.M0.Vx + 8)
+			tia.M1.move(tia.M1.Vx + 8)
+			tia.BL.move(tia.BL.Vx + 8)
+		}
 	}
 
 	if tia.ScreenX == 160 {
@@ -296,6 +315,8 @@ func (tia *tia) runCycle() {
 		}
 	} else if tia.ScreenX == 0 {
 		tia.InHBlank = false
+	} else if tia.ScreenX == 8 {
+		tia.HMoveCombEnabled = false
 	}
 
 	if tia.ScreenX >= 0 && tia.ScreenX < 160 {
@@ -318,33 +339,35 @@ func (tia *tia) runCycle() {
 			}
 		}
 
-		updateCollision(&tia.Collisions.BLPF, ballBit && playfieldBit)
+		if !tia.InVBlank && !tia.HMoveCombEnabled {
+			updateCollision(&tia.Collisions.BLPF, ballBit && playfieldBit)
 
-		updateCollision(&tia.Collisions.P0PF, p0Bit && playfieldBit)
-		updateCollision(&tia.Collisions.P0BL, p0Bit && ballBit)
+			updateCollision(&tia.Collisions.P0PF, p0Bit && playfieldBit)
+			updateCollision(&tia.Collisions.P0BL, p0Bit && ballBit)
 
-		updateCollision(&tia.Collisions.M0P0, m0Bit && p0Bit)
-		updateCollision(&tia.Collisions.M0P1, m0Bit && p1Bit)
-		updateCollision(&tia.Collisions.M0PF, m0Bit && playfieldBit)
-		updateCollision(&tia.Collisions.M0BL, m0Bit && ballBit)
+			updateCollision(&tia.Collisions.M0P0, m0Bit && p0Bit)
+			updateCollision(&tia.Collisions.M0P1, m0Bit && p1Bit)
+			updateCollision(&tia.Collisions.M0PF, m0Bit && playfieldBit)
+			updateCollision(&tia.Collisions.M0BL, m0Bit && ballBit)
 
-		updateCollision(&tia.Collisions.P1PF, p1Bit && playfieldBit)
-		updateCollision(&tia.Collisions.P1BL, p1Bit && ballBit)
+			updateCollision(&tia.Collisions.P1PF, p1Bit && playfieldBit)
+			updateCollision(&tia.Collisions.P1BL, p1Bit && ballBit)
 
-		updateCollision(&tia.Collisions.M1P0, m1Bit && p0Bit)
-		updateCollision(&tia.Collisions.M1P1, m1Bit && p1Bit)
-		updateCollision(&tia.Collisions.M1PF, m1Bit && playfieldBit)
-		updateCollision(&tia.Collisions.M1BL, m1Bit && ballBit)
+			updateCollision(&tia.Collisions.M1P0, m1Bit && p0Bit)
+			updateCollision(&tia.Collisions.M1P1, m1Bit && p1Bit)
+			updateCollision(&tia.Collisions.M1PF, m1Bit && playfieldBit)
+			updateCollision(&tia.Collisions.M1BL, m1Bit && ballBit)
 
-		updateCollision(&tia.Collisions.P0P1, p0Bit && p1Bit)
-		updateCollision(&tia.Collisions.M0M1, m0Bit && m1Bit)
+			updateCollision(&tia.Collisions.P0P1, p0Bit && p1Bit)
+			updateCollision(&tia.Collisions.M0M1, m0Bit && m1Bit)
+		}
 
 		drawPFBL := playfieldBit || ballBit
 		drawP0M0 := p0Bit || m0Bit
 		drawP1M1 := p1Bit || m1Bit
 
 		var colorLuma byte
-		if tia.InVBlank {
+		if tia.InVBlank || tia.HMoveCombEnabled {
 			colorLuma = 0
 		} else if tia.PFAndBLHavePriority {
 			if drawPFBL {
