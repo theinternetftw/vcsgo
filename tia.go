@@ -1,7 +1,7 @@
 package vcsgo
 
 type tia struct {
-	Screen [160 * 222 * 4]byte
+	Screen [320 * 240 * 4]byte
 
 	ScreenX int
 	ScreenY int
@@ -238,10 +238,15 @@ func (tia *tia) getMissileBit(missile *sprite) bool {
 func (tia *tia) drawColor(colorLuma byte) {
 	x, y := int(tia.ScreenX), tia.ScreenY
 	col := ntscPalette[colorLuma>>1]
-	tia.Screen[y*160*4+x*4] = col[0]
-	tia.Screen[y*160*4+x*4+1] = col[1]
-	tia.Screen[y*160*4+x*4+2] = col[2]
-	tia.Screen[y*160*4+x*4+3] = 0xff
+	tia.Screen[y*320*4+(2*x)*4] = col[0]
+	tia.Screen[y*320*4+(2*x)*4+1] = col[1]
+	tia.Screen[y*320*4+(2*x)*4+2] = col[2]
+	tia.Screen[y*320*4+(2*x)*4+3] = 0xff
+
+	tia.Screen[y*320*4+(2*x+1)*4] = col[0]
+	tia.Screen[y*320*4+(2*x+1)*4+1] = col[1]
+	tia.Screen[y*320*4+(2*x+1)*4+2] = col[2]
+	tia.Screen[y*320*4+(2*x+1)*4+3] = 0xff
 }
 
 func (s *sprite) lockMissileToPlayer(player *sprite) {
