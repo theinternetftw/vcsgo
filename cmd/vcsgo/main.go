@@ -89,14 +89,16 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 				newInput.JoyP0.Right = window.CodeIsDown(key.CodeD)
 				newInput.JoyP0.Button = window.CodeIsDown(key.CodeJ)
 
-				newInput.Paddle0.Button = newInput.JoyP0.Button
+				// TODO: switch between input methods (arg switch, plus
+				//  about 20 MD5s for the games that use paddles)
 				if newInput.JoyP0.Left {
 					paddle0Position -= paddleVel*inputDt
 				} else if newInput.JoyP0.Right {
 					paddle0Position += paddleVel*inputDt
 				}
 				paddle0Position = clamp(-135, paddle0Position, 135)
-				newInput.Paddle0.Position = int16(paddle0Position)
+				//newInput.Paddle0.Button = newInput.JoyP0.Button
+				//newInput.Paddle0.Position = int16(paddle0Position)
 
 				newInput.JoyP1.Up = window.CodeIsDown(key.CodeUpArrow)
 				newInput.JoyP1.Down = window.CodeIsDown(key.CodeDownArrow)
