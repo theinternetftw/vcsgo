@@ -174,7 +174,7 @@ func (tia *tia) getBallBit() bool {
 	return x >= blX && x < blX+blSz
 }
 
-var repeatModeTable = [8][9]byte{
+var playerRepeatModeTable = [8][9]byte{
 	{1, 0, 0, 0, 0, 0, 0, 0, 0},
 	{1, 0, 1, 0, 0, 0, 0, 0, 0},
 	{1, 0, 0, 0, 1, 0, 0, 0, 0},
@@ -187,7 +187,7 @@ var repeatModeTable = [8][9]byte{
 
 func (tia *tia) getPlayerBit(player *sprite, delay bool) bool {
 
-	row := repeatModeTable[player.RepeatMode]
+	row := playerRepeatModeTable[player.RepeatMode]
 	pX := tia.ScreenX - int(player.X)
 	if pX < 0 || pX >= 9*8 {
 		return false
@@ -217,9 +217,21 @@ func (tia *tia) getPlayerBit(player *sprite, delay bool) bool {
 	return (shape<<shapeX)&0x80 == 0x80
 }
 
+// same as player, save no double or quad mode
+var missileRepeatModeTable = [8][9]byte{
+	{1, 0, 0, 0, 0, 0, 0, 0, 0},
+	{1, 0, 1, 0, 0, 0, 0, 0, 0},
+	{1, 0, 0, 0, 1, 0, 0, 0, 0},
+	{1, 0, 1, 0, 1, 0, 0, 0, 0},
+	{1, 0, 0, 0, 0, 0, 0, 0, 1},
+	{1, 0, 0, 0, 0, 0, 0, 0, 0},
+	{1, 0, 0, 0, 1, 0, 0, 0, 1},
+	{1, 0, 0, 0, 0, 0, 0, 0, 0},
+}
+
 func (tia *tia) getMissileBit(missile *sprite) bool {
 
-	row := repeatModeTable[missile.RepeatMode]
+	row := missileRepeatModeTable[missile.RepeatMode]
 	mX := tia.ScreenX - int(missile.X)
 	if mX < 0 || mX >= 9*8 {
 		return false
