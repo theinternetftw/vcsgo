@@ -1,7 +1,7 @@
 package vcsgo
 
 type tia struct {
-	Screen [320 * 240 * 4]byte
+	Screen [320 * 264 * 4]byte
 
 	ScreenX int
 	ScreenY int
@@ -325,10 +325,10 @@ func (tia *tia) runCycle() {
 		tia.ScreenX = -68
 		tia.WaitForHBlank = false
 		tia.InHBlank = true
-		if tia.ScreenY++; tia.ScreenY > 221 {
+		if tia.ScreenY++; tia.ScreenY > 263 {
 			// if a program doesn't vsync, lets just hang
 			// out here at the end of the screen...
-			tia.ScreenY = 221
+			tia.ScreenY = 263
 		}
 	} else if tia.ScreenX == 0 {
 		tia.InHBlank = false
@@ -414,7 +414,7 @@ func (tia *tia) runCycle() {
 			}
 		}
 
-		if tia.ScreenY >= 0 && tia.ScreenY < 222 {
+		if tia.ScreenY >= 0 && tia.ScreenY < 264 {
 			tia.drawColor(colorLuma)
 		}
 	}

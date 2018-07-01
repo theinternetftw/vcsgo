@@ -30,8 +30,8 @@ func main() {
 	emu = vcsgo.NewEmulator(cartBytes)
 
 	screenW := 320
-	screenH := 240
-	platform.InitDisplayLoop("vcsgo", screenW*2+40, screenH*2+40, screenW, screenH, func(sharedState *platform.WindowState) {
+	screenH := 264
+	platform.InitDisplayLoop("vcsgo", screenW*2, screenH*2, screenW, screenH, func(sharedState *platform.WindowState) {
 		startEmu(cartFilename, sharedState, emu)
 	})
 }
