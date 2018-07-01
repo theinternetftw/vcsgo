@@ -32,6 +32,11 @@ type Input struct {
 
 	JoyP0 Joystick
 	JoyP1 Joystick
+
+	Paddle0 Paddle
+	Paddle1 Paddle
+	Paddle2 Paddle
+	Paddle3 Paddle
 }
 
 // Joystick represents the buttons on a joystick
@@ -41,6 +46,13 @@ type Joystick struct {
 	Left   bool
 	Right  bool
 	Button bool
+}
+
+// Paddle represents a paddle controller
+type Paddle struct {
+	Button bool
+	// Position should range from -135 to +135
+	Position int16
 }
 
 func (emu *emuState) UpdateInput(input Input) {

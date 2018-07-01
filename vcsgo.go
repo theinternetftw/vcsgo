@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/theinternetftw/cpugo/virt6502"
 )
@@ -16,9 +17,9 @@ const (
 )
 
 const (
-	// tiaCyclesPerLine = 228
-	// cpuCyclesPerLine = 228/3
-	// linesPerFrame = 262
+	tiaCyclesPerScanline = 228
+	cpuCyclesPerScanline = 228 / 3
+	// scanlinesPerFrame = 262
 	// framesPerSecond = 60
 	tiaCyclesPerSecond = 1193182 * 3
 )
@@ -42,7 +43,14 @@ type emuState struct {
 	DebugContinue   bool
 	DebugCmdStr     []byte
 
-	Input03TiedToLow bool
+	Input03TiedToLow           bool
+	InputTimingPots            bool
+	InputTimingPotsStartCycles uint64
+
+	Paddle0InputCharged bool
+	Paddle1InputCharged bool
+	Paddle2InputCharged bool
+	Paddle3InputCharged bool
 
 	Input45LatchMode bool
 	Input4LatchVal   bool
@@ -124,6 +132,8 @@ func (emu *emuState) framebuffer() []byte {
 	return emu.TIA.Screen[:]
 }
 
+var lastCheck time.Time
+
 func (emu *emuState) runCycles(cycles uint) {
 	for i := uint(0); i < cycles; i++ {
 		emu.Cycles++
@@ -135,6 +145,46 @@ func (emu *emuState) runCycles(cycles uint) {
 			emu.APU.runCycle()
 		}
 	}
+	if emu.InputTimingPots {
+		diff := emu.Cycles - emu.InputTimingPotsStartCycles
+		scanlines := int16(diff / cpuCyclesPerScanline)
+		paddles, regs := []Paddle{
+			emu.Input.Paddle0, emu.Input.Paddle1,
+			emu.Input.Paddle2, emu.Input.Paddle3,
+		}, []*bool{
+			&emu.Paddle0InputCharged, &emu.Paddle1InputCharged,
+			&emu.Paddle2InputCharged, &emu.Paddle3InputCharged,
+		}
+		for i, paddle := range paddles {
+			scanLimit := paddlePosToScanlines(paddle.Position)
+			if paddle.Position < 0 && scanlines >= scanLimit {
+				if time.Now().Sub(lastCheck).Seconds() > 0.2 {
+					fmt.Println("pos:", paddle.Position, "limit:", scanLimit, "scanlines:", scanlines)
+					lastCheck = time.Now()
+				}
+				*regs[i] = true
+			}
+		}
+		allDone := true
+		for _, reg := range regs {
+			if !(*reg) {
+				allDone = false
+			}
+		}
+		if allDone {
+			emu.InputTimingPots = false
+		}
+	}
+}
+
+func paddlePosToScanlines(pos int16) int16 {
+	v := int16(float32(135-pos) / 270.0 * 380.0)
+	if v < 0 {
+		return 0
+	} else if v > 380 {
+		return 380
+	}
+	return v
 }
 
 type debugCmdType int
@@ -267,7 +317,6 @@ func (emu *emuState) updateInput(input Input) {
 		emu.LastKeyState[i] = down
 	}
 
-	// TODO: other controllers
 	if emu.Input45LatchMode {
 		if emu.Input4LatchVal {
 			emu.Input4LatchVal = !emu.Input.JoyP0.Button

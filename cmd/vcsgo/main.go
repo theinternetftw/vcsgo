@@ -58,13 +58,24 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 	lastNumGC := int64(0)
 	gcStats := debug.GCStats{}
 
+	paddle0Position := float32(0)
+	paddleVel := float32(45) //degrees a second
+	clamp := func(min, x, max float32) float32 {
+		if x < min {
+			return min
+		} else if x > max {
+			return max
+		}
+		return x
+	}
+
 	for {
 		newInput := vcsgo.Input {}
 		snapshotMode := 'x'
 		numDown := 'x'
 
-		now := time.Now()
-		if now.Sub(lastInputUpdateTime).Seconds() > 0.001 {
+		inputDt := float32(time.Now().Sub(lastInputUpdateTime).Seconds())
+		if inputDt > 0.001 {
 			window.Mutex.Lock()
 			{
 				window.CopyKeyCharArray(newInput.Keys[:])
@@ -77,6 +88,15 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 				newInput.JoyP0.Left = window.CodeIsDown(key.CodeA)
 				newInput.JoyP0.Right = window.CodeIsDown(key.CodeD)
 				newInput.JoyP0.Button = window.CodeIsDown(key.CodeJ)
+
+				newInput.Paddle0.Button = newInput.JoyP0.Button
+				if newInput.JoyP0.Left {
+					paddle0Position -= paddleVel*inputDt
+				} else if newInput.JoyP0.Right {
+					paddle0Position += paddleVel*inputDt
+				}
+				paddle0Position = clamp(-135, paddle0Position, 135)
+				newInput.Paddle0.Position = int16(paddle0Position)
 
 				newInput.JoyP1.Up = window.CodeIsDown(key.CodeUpArrow)
 				newInput.JoyP1.Down = window.CodeIsDown(key.CodeDownArrow)
@@ -151,6 +171,10 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 				//fmt.Printf("maxRTime %.4f, maxFTime %.4f\n", maxRDiff.Seconds(), maxFDiff)
 				maxRDiff = 0
 				maxFDiff = 0
+			}
+
+			if frameCount & 0x1f == 0 {
+				//fmt.Println("cmd-paddlePos", paddle0Position)
 			}
 
 			rDiff := time.Now().Sub(lastFlipTime)

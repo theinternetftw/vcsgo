@@ -51,16 +51,15 @@ func (emu *emuState) read(addr uint16) byte {
 			val = boolBit(7, emu.TIA.Collisions.P0P1)
 			val |= boolBit(6, emu.TIA.Collisions.M0M1)
 
-		// TODO: paddles, other controllers
-		// (currently simulating no paddles plugged in)
+		// TODO: keypad?
 		case 0x08:
-			val = boolBit(0, !emu.Input03TiedToLow)
+			val = boolBit(7, emu.Paddle0InputCharged)
 		case 0x09:
-			val = boolBit(0, !emu.Input03TiedToLow)
+			val = boolBit(7, emu.Paddle1InputCharged)
 		case 0x0a:
-			val = boolBit(0, !emu.Input03TiedToLow)
+			val = boolBit(7, emu.Paddle2InputCharged)
 		case 0x0b:
-			val = boolBit(0, !emu.Input03TiedToLow)
+			val = boolBit(7, emu.Paddle3InputCharged)
 
 		case 0x0c:
 			if emu.Input45LatchMode {
@@ -91,12 +90,12 @@ func (emu *emuState) read(addr uint16) byte {
 			// TODO: support other input methods
 			// TODO: does moved/not moved mean pressed or not?
 			val = byteFromBools(
-				!emu.Input.JoyP0.Right,
-				!emu.Input.JoyP0.Left,
+				!emu.Input.JoyP0.Right && !emu.Input.Paddle0.Button,
+				!emu.Input.JoyP0.Left && !emu.Input.Paddle1.Button,
 				!emu.Input.JoyP0.Down,
 				!emu.Input.JoyP0.Up,
-				!emu.Input.JoyP1.Right,
-				!emu.Input.JoyP1.Left,
+				!emu.Input.JoyP1.Right && !emu.Input.Paddle2.Button,
+				!emu.Input.JoyP1.Left && !emu.Input.Paddle3.Button,
 				!emu.Input.JoyP1.Down,
 				!emu.Input.JoyP1.Up,
 			)
@@ -179,7 +178,18 @@ func (emu *emuState) write(addr uint16, val byte) {
 			}
 
 			// TODO: paddle controllers, 3button adapter
+			wasTied := emu.Input03TiedToLow
 			emu.Input03TiedToLow = val&0x80 != 0
+			if wasTied && !emu.Input03TiedToLow {
+				emu.InputTimingPots = true
+				emu.InputTimingPotsStartCycles = emu.Cycles
+			}
+			if emu.Input03TiedToLow {
+				emu.Paddle0InputCharged = false
+				emu.Paddle1InputCharged = false
+				emu.Paddle2InputCharged = false
+				emu.Paddle3InputCharged = false
+			}
 
 			emu.TIA.InVBlank = val&0x02 != 0
 		case 0x02:
