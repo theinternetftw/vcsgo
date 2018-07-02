@@ -386,10 +386,11 @@ func (m *mapperStd) read(mem *mem, addr uint16) byte {
 	var val byte
 	if m.Superchip.Activated && addr >= 0x1000 && addr <= 0x10ff {
 		val = m.Superchip.read(addr)
-	} else if addr >= m.CtrlAddrLow && addr <= m.CtrlAddrHigh {
-		m.BankNum = addr - m.CtrlAddrLow
 	} else {
 		val = mem.rom[m.BankNum*4096+(addr&0xfff)]
+	}
+	if addr >= m.CtrlAddrLow && addr <= m.CtrlAddrHigh {
+		m.BankNum = addr - m.CtrlAddrLow
 	}
 	return val
 }
@@ -428,10 +429,11 @@ func (m *mapperFA) read(mem *mem, addr uint16) byte {
 		val = m.MapperRAM[addr&0xff]
 	} else if addr >= 0x1000 && addr <= 0x10ff {
 		m.MapperRAM[addr&0xff] = 0xff // trash ram
-	} else if addr >= 0x1ff8 && addr <= 0x1ffa {
-		m.BankNum = addr - 0x1ff8
 	} else {
 		val = mem.rom[m.BankNum*4096+(addr&0xfff)]
+	}
+	if addr >= 0x1ff8 && addr <= 0x1ffa {
+		m.BankNum = addr - 0x1ff8
 	}
 	return val
 }
@@ -451,10 +453,11 @@ func (m *mapperF0) read(mem *mem, addr uint16) byte {
 	var val byte
 	if addr == 0x1fec {
 		val = byte(m.BankNum)
-	} else if addr == 0x1ff0 {
-		m.BankNum = (m.BankNum + 1) & 0x0f
 	} else {
 		val = mem.rom[m.BankNum*4096+(addr&0xfff)]
+	}
+	if addr == 0x1ff0 {
+		m.BankNum = (m.BankNum + 1) & 0x0f
 	}
 	return val
 }
