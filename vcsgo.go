@@ -340,8 +340,8 @@ func (emu *emuState) ReadSoundBuffer(toFill []byte) []byte {
 	return emu.APU.buffer.read(toFill)
 }
 
-func newState(cart []byte) *emuState {
-	emu := emuState{
+func initEmuState(emu *emuState, cart []byte) {
+	*emu = emuState{
 		Mem: mem{
 			rom: cart,
 		},
@@ -361,6 +361,7 @@ func newState(cart []byte) *emuState {
 			M1:       sprite{Size: 1},
 		},
 	}
+
 	emu.CPU = virt6502.Virt6502{
 		RESET:     true,
 		RunCycles: emu.runCycles,
@@ -373,8 +374,37 @@ func newState(cart []byte) *emuState {
 	// NOTE: random fill the RAM, but but still keep it
 	// deterministic every start for the moment...
 	rand.Read(emu.Mem.RAM[:])
+}
+
+func newState(cart []byte) *emuState {
+	var emu emuState
+
+	initEmuState(&emu, cart)
+	tvFormat := discoverTVFormat(&emu)
+	// start fresh with correct format
+	initEmuState(&emu, cart)
+	emu.TIA.TVFormat = tvFormat
 
 	return &emu
+}
+
+// discoverTVFormat runs a headless version of emulation for
+// a few frames and returns whether it thinks its PAL or not
+func discoverTVFormat(emu *emuState) byte {
+
+	const numTestFrames = 10
+
+	frames := 0
+	nullInput := Input{}
+	emu.DebugContinue = true
+	for frames < numTestFrames {
+		emu.UpdateInput(nullInput)
+		emu.Step()
+		if emu.FlipRequested() {
+			frames++
+		}
+	}
+	return emu.TIA.TVFormat
 }
 
 func emuErr(args ...interface{}) {

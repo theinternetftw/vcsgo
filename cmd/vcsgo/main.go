@@ -25,9 +25,7 @@ func main() {
 	cartBytes, err := ioutil.ReadFile(cartFilename)
 	dieIf(err)
 
-	var emu vcsgo.Emulator
-
-	emu = vcsgo.NewEmulator(cartBytes)
+	emu := vcsgo.NewEmulator(cartBytes)
 
 	screenW := 320
 	screenH := 264
@@ -68,6 +66,11 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 		}
 		return x
 	}
+
+	frametimeGoal := map[byte]float64 {
+		vcsgo.FormatNTSC: 1.0/60.0,
+		vcsgo.FormatPAL: 1.0/50.0,
+	}[emu.GetTVFormat()]
 
 	for {
 		newInput := vcsgo.Input {}
@@ -187,7 +190,7 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 			}
 
 			fDiff := 0.0
-			for fDiff < 0.0161 { // seems to be about 0.005 resolution? so leave a bit of play
+			for fDiff < frametimeGoal-0.005 { // seems to be about 0.005 resolution? so leave a bit of play
 				fDiff = time.Now().Sub(lastFlipTime).Seconds()
 			}
 			if rDiff > maxRDiff {

@@ -1,7 +1,11 @@
 package vcsgo
 
+import "fmt"
+
 type tia struct {
 	Screen [320 * 264 * 4]byte
+
+	TVFormat byte
 
 	ScreenX int
 	ScreenY int
@@ -247,9 +251,15 @@ func (tia *tia) getMissileBit(missile *sprite) bool {
 	return shapeX <= int(missile.Size)-1
 }
 
+var palettes = [2][128][3]byte{
+	ntscPalette,
+	palPalette,
+}
+
 func (tia *tia) drawColor(colorLuma byte) {
 	x, y := int(tia.ScreenX), tia.ScreenY
-	col := ntscPalette[colorLuma>>1]
+	pal := palettes[tia.TVFormat] // TODO: pull this out
+	col := pal[colorLuma>>1]
 	tia.Screen[y*320*4+(2*x)*4] = col[0]
 	tia.Screen[y*320*4+(2*x)*4+1] = col[1]
 	tia.Screen[y*320*4+(2*x)*4+2] = col[2]
@@ -276,14 +286,17 @@ func (s *sprite) lockMissileToPlayer(player *sprite) {
 
 func (tia *tia) runCycle() {
 
+	upperBorder := [2]int{
+		-37,
+		-45,
+	}
+
 	if !tia.WasInVSync && tia.InVSync {
 		tia.WasInVSync = true
 		tia.flipRequested = true
 	} else if tia.WasInVSync && !tia.InVSync {
 		tia.WasInVSync = false
-		// upper border
-		// tia.ScreenY = -37
-		tia.ScreenY = -37
+		tia.ScreenY = upperBorder[tia.TVFormat]
 	}
 
 	if !tia.WasInVBlank && tia.InVBlank {
@@ -334,6 +347,13 @@ func (tia *tia) runCycle() {
 		tia.InHBlank = false
 	} else if tia.ScreenX == 8 {
 		tia.HMoveCombEnabled = false
+	}
+
+	if tia.ScreenY == 250 {
+		if tia.TVFormat != FormatPAL {
+			fmt.Println("PAL!")
+			tia.TVFormat = FormatPAL
+		}
 	}
 
 	if tia.ScreenX >= 0 && tia.ScreenX < 160 {

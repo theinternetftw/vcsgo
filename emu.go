@@ -14,9 +14,15 @@ type Emulator interface {
 
 	UpdateInput(input Input)
 
-	GetCycles() uint64
-	GetCyclesPerSecond() uint64
+	GetTVFormat() byte
 }
+
+const (
+	// FormatNTSC represents NTSC 60fps games
+	FormatNTSC = iota
+	// FormatPAL represents PAL 50fps games
+	FormatPAL
+)
 
 // Input covers all outside info sent to the Emulator
 // TODO: add dt?
@@ -87,9 +93,6 @@ func (emu *emuState) Step() {
 	emu.step()
 }
 
-func (emu *emuState) GetCycles() uint64 {
-	return emu.Cycles
-}
-func (emu *emuState) GetCyclesPerSecond() uint64 {
-	return tiaCyclesPerSecond
+func (emu *emuState) GetTVFormat() byte {
+	return emu.TIA.TVFormat
 }
