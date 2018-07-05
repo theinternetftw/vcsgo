@@ -279,6 +279,7 @@ func (emu *emuState) step() {
 			fmt.Println("* ERR - unknown BUT PARSED command")
 			return
 		}
+		emu.TIA.flipRequested = true
 	}
 
 	//if showMemReads { fmt.Println() }
@@ -296,12 +297,12 @@ func (emu *emuState) stepNoDbg() {
 }
 
 func (emu *emuState) debugStatusLine() string {
-	return fmt.Sprintf("%sT:0x%02x Tstep:%04d, Bx:%02x Bvx:%02d",
+	return fmt.Sprintf("%sT:0x%02x Tstep:%04d, sX:%03d sY:%03d",
 		emu.CPU.DebugStatusLine(),
 		emu.Timer.Val,
 		emu.Timer.Interval,
-		emu.TIA.BL.X,
-		emu.TIA.BL.Vx,
+		emu.TIA.ScreenX,
+		emu.TIA.ScreenY,
 	)
 }
 
