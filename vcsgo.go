@@ -71,7 +71,6 @@ type timer struct {
 	Interval                       int
 	BaseClock                      int
 	Underflow                      bool
-	UnderflowSinceLastReadINTIM    bool
 	UnderflowSinceLastReadINSTAT   bool
 	UnderflowSinceLastWriteAnyTIMT bool
 }
@@ -86,9 +85,8 @@ func (t *timer) runCycle() {
 
 func (t *timer) decTimer() {
 	t.Val--
-	if t.Val == 255 {
+	if t.Val == 255 && !t.Underflow {
 		t.Underflow = true
-		t.UnderflowSinceLastReadINTIM = true
 		t.UnderflowSinceLastReadINSTAT = true
 		t.UnderflowSinceLastWriteAnyTIMT = true
 	}
@@ -104,7 +102,6 @@ func (t *timer) writeAnyTIMT(interval int, val byte) {
 }
 
 func (t *timer) readINTIM() byte {
-	t.UnderflowSinceLastReadINTIM = false
 	if t.Underflow {
 		t.Underflow = false
 		t.BaseClock = 0 // NOTE: is this right?
