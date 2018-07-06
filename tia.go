@@ -286,17 +286,14 @@ func (s *sprite) lockMissileToPlayer(player *sprite) {
 
 func (tia *tia) runCycle() {
 
-	upperBorder := [2]int{
-		-37,
-		-45,
-	}
-
 	if !tia.WasInVSync && tia.InVSync {
 		tia.WasInVSync = true
 		tia.flipRequested = true
 	} else if tia.WasInVSync && !tia.InVSync {
 		tia.WasInVSync = false
-		tia.ScreenY = upperBorder[tia.TVFormat]
+		// NOTE: Found PAL roms that expect less than 45 lines
+		// of upper border, so leaving this as is for now.
+		tia.ScreenY = -37
 	}
 
 	if !tia.WasInVBlank && tia.InVBlank {
