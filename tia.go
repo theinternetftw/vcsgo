@@ -5,7 +5,8 @@ import "fmt"
 type tia struct {
 	Screen [320 * 264 * 4]byte
 
-	TVFormat byte
+	TVFormat      byte
+	DrewThisFrame bool
 
 	ScreenX int
 	ScreenY int
@@ -294,6 +295,7 @@ func (tia *tia) runCycle() {
 		// NOTE: Found PAL roms that expect less than 45 lines
 		// of upper border, so leaving this as is for now.
 		tia.ScreenY = -37
+		tia.DrewThisFrame = false
 	}
 
 	if !tia.WasInVBlank && tia.InVBlank {
@@ -346,8 +348,8 @@ func (tia *tia) runCycle() {
 		tia.HMoveCombEnabled = false
 	}
 
-	if tia.ScreenY == 250 {
-		if tia.TVFormat != FormatPAL {
+	if tia.ScreenY == 263 {
+		if tia.TVFormat != FormatPAL && tia.DrewThisFrame {
 			fmt.Println("PAL!")
 			tia.TVFormat = FormatPAL
 		}
@@ -432,6 +434,7 @@ func (tia *tia) runCycle() {
 		}
 
 		if tia.ScreenY >= 0 && tia.ScreenY < 264 {
+			tia.DrewThisFrame = tia.DrewThisFrame || colorLuma != 0
 			tia.drawColor(colorLuma)
 		}
 	}
