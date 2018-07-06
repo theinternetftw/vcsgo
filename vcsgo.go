@@ -382,6 +382,7 @@ func newState(cart []byte) *emuState {
 	// start fresh with correct format
 	initEmuState(&emu, cart)
 	emu.TIA.TVFormat = tvFormat
+	emu.TIA.FormatSet = true
 
 	return &emu
 }

@@ -7,6 +7,7 @@ type tia struct {
 
 	TVFormat      byte
 	DrewThisFrame bool
+	FormatSet     bool
 
 	ScreenX int
 	ScreenY int
@@ -349,9 +350,10 @@ func (tia *tia) runCycle() {
 	}
 
 	if tia.ScreenY == 263 {
-		if tia.TVFormat != FormatPAL && tia.DrewThisFrame {
+		if !tia.FormatSet && tia.DrewThisFrame {
 			fmt.Println("PAL!")
 			tia.TVFormat = FormatPAL
+			tia.FormatSet = true
 		}
 	}
 
