@@ -373,7 +373,7 @@ func initEmuState(emu *emuState, cart []byte) {
 		Read:      emu.read,
 		Err:       func(e error) { emuErr(e) },
 	}
-	emu.APU.init()
+	emu.APU.init(emu)
 
 	// NOTE: random fill the RAM, but but still keep it
 	// deterministic every start for the moment...
