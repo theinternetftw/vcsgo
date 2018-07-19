@@ -399,10 +399,15 @@ func discoverTVFormat(emu *emuState) byte {
 
 	const numTestFrames = 10
 
+	startTime := time.Now()
+
 	frames := 0
 	nullInput := Input{}
 	emu.DebugContinue = true
 	for frames < numTestFrames {
+		if time.Now().Sub(startTime) > 1*time.Second {
+			break
+		}
 		emu.UpdateInput(nullInput)
 		emu.Step()
 		if emu.FlipRequested() {
