@@ -184,47 +184,47 @@ func paddlePosToScanlines(pos int16) int16 {
 	return v
 }
 
-type debugCmdType int
+type dbgCmdType int
 
 const (
-	cmdStep = iota
+	cmdStep dbgCmdType = iota
 	cmdRunto
 	cmdContinue
 	cmdDisplay
 )
 
-type debugCmd struct {
-	cType debugCmdType
+type dbgCmd struct {
+	cType dbgCmdType
 	argPC uint16
 }
 
-func getCmd(cmdStr string) (debugCmd, error) {
+func getDbgCmd(cmdStr string) (dbgCmd, error) {
 	parts := strings.Split(string(cmdStr), " ")
 	if len(parts) == 1 && (parts[0] == "" || parts[0] == "s") {
-		return debugCmd{cmdStep, 0}, nil
+		return dbgCmd{cmdStep, 0}, nil
 	}
 	switch parts[0] {
 	case "c":
 		if len(parts) > 1 {
-			return debugCmd{}, fmt.Errorf("continue takes no args")
+			return dbgCmd{}, fmt.Errorf("continue takes no args")
 		}
-		return debugCmd{cmdContinue, 0}, nil
+		return dbgCmd{cmdContinue, 0}, nil
 	case "d":
 		if len(parts) > 1 {
-			return debugCmd{}, fmt.Errorf("display takes no args")
+			return dbgCmd{}, fmt.Errorf("display takes no args")
 		}
-		return debugCmd{cmdDisplay, 0}, nil
+		return dbgCmd{cmdDisplay, 0}, nil
 	case "r":
 		if len(parts) < 2 {
-			return debugCmd{}, fmt.Errorf("need pc arg")
+			return dbgCmd{}, fmt.Errorf("need pc arg")
 		}
 		i, err := strconv.ParseUint(parts[1], 16, 16)
 		if err != nil {
-			return debugCmd{}, fmt.Errorf("bad pc arg: %v", err)
+			return dbgCmd{}, fmt.Errorf("bad pc arg: %v", err)
 		}
-		return debugCmd{cmdRunto, uint16(i)}, nil
+		return dbgCmd{cmdRunto, uint16(i)}, nil
 	default:
-		return debugCmd{}, fmt.Errorf("unknown command %q", parts[0])
+		return dbgCmd{}, fmt.Errorf("unknown command %q", parts[0])
 	}
 }
 
@@ -256,7 +256,7 @@ func (emu *emuState) step() {
 		cmdStr := string(emu.DebugCmdStr)
 		emu.DebugCmdStr = emu.DebugCmdStr[:0]
 
-		if cmd, err := getCmd(cmdStr); err != nil {
+		if cmd, err := getDbgCmd(cmdStr); err != nil {
 			fmt.Printf("* ERR - %v\n", err)
 			return
 		} else if cmd.cType == cmdContinue {
@@ -267,9 +267,15 @@ func (emu *emuState) step() {
 		} else if cmd.cType == cmdStep {
 			fmt.Println(emu.debugStatusLine())
 		} else if cmd.cType == cmdRunto {
+			start := time.Now()
+			timeout := 5 * time.Second
 			fmt.Printf("running to 0x%04x\n", cmd.argPC)
 			for emu.CPU.PC != uint16(cmd.argPC) {
 				emu.stepNoDbg()
+				if time.Now().Sub(start) > timeout {
+					fmt.Printf("TIMED OUT: ran to 0x%04x\n", emu.CPU.PC)
+					break
+				}
 			}
 			fmt.Println(emu.debugStatusLine())
 		} else {
