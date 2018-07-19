@@ -183,14 +183,17 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 			}
 
 			rDiff := time.Now().Sub(lastFlipTime)
-			toSleep := 15*time.Millisecond - rDiff
-			if toSleep > 2*time.Millisecond {
+			const accuracyProtection = 2*time.Millisecond
+			ftGoalAsDuration := time.Duration(frametimeGoal*1000)*time.Millisecond
+			maxSleep := ftGoalAsDuration - accuracyProtection
+			toSleep := maxSleep - rDiff
+			if toSleep > accuracyProtection {
 				timer.Reset(toSleep)
 				<-timer.C
 			}
 
 			fDiff := 0.0
-			for fDiff < frametimeGoal-0.005 { // seems to be about 0.005 resolution? so leave a bit of play
+			for fDiff < frametimeGoal-0.0005 { // seems to be about 0.0005 resolution? so leave a bit of play
 				fDiff = time.Now().Sub(lastFlipTime).Seconds()
 			}
 			if rDiff > maxRDiff {
