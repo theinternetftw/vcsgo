@@ -26,6 +26,7 @@ type tia struct {
 
 	// loaded in such that a screen half is Bits 19-0
 	Playfield               uint32
+	PlayfieldToLoad         uint32
 	PFAndBLHavePriority     bool
 	PlayfieldScoreColorMode bool
 	PlayfieldReflect        bool
@@ -286,6 +287,13 @@ func (s *sprite) lockMissileToPlayer(player *sprite) {
 	s.X %= 160
 }
 
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 func (tia *tia) runCycle() {
 
 	if !tia.WasInVSync && tia.InVSync {
@@ -439,6 +447,12 @@ func (tia *tia) runCycle() {
 			tia.DrewThisFrame = tia.DrewThisFrame || colorLuma != 0
 			tia.drawColor(colorLuma)
 		}
+	}
+
+	// NOTE: Load every four pixels is correct, but don't be surprised
+	// if what offset we do it at changes when other things are fixed...
+	if abs(tia.ScreenX)&3 == 3 {
+		tia.Playfield = tia.PlayfieldToLoad
 	}
 
 	tia.ScreenX++

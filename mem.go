@@ -225,14 +225,14 @@ func (emu *emuState) write(addr uint16, val byte) {
 		case 0x0c:
 			emu.TIA.P1.Reflect = val&0x08 != 0
 		case 0x0d:
-			emu.TIA.Playfield &^= 0x0f0000
-			emu.TIA.Playfield |= uint32(reverseByte(val)&0x0f) << 16
+			emu.TIA.PlayfieldToLoad &^= 0x0f0000
+			emu.TIA.PlayfieldToLoad |= uint32(reverseByte(val)&0x0f) << 16
 		case 0x0e:
-			emu.TIA.Playfield &^= 0x00ff00
-			emu.TIA.Playfield |= uint32(val) << 8
+			emu.TIA.PlayfieldToLoad &^= 0x00ff00
+			emu.TIA.PlayfieldToLoad |= uint32(val) << 8
 		case 0x0f:
-			emu.TIA.Playfield &^= 0x0000ff
-			emu.TIA.Playfield |= uint32(reverseByte(val))
+			emu.TIA.PlayfieldToLoad &^= 0x0000ff
+			emu.TIA.PlayfieldToLoad |= uint32(reverseByte(val))
 
 		case 0x10:
 			emu.TIA.resetP0()
