@@ -17,7 +17,7 @@ type snapshot struct {
 	Version int
 	Info    string
 	State   json.RawMessage
-	RAM     []byte
+	Mapper  marshalledMapper
 }
 
 func (emu *emuState) loadSnapshot(snapBytes []byte) (*emuState, error) {
@@ -37,53 +37,62 @@ func (emu *emuState) loadSnapshot(snapBytes []byte) (*emuState, error) {
 		return nil, fmt.Errorf("this version of vcsgo is too old to open this snapshot")
 	}
 
-	return emu.convertLatestSnapshot(snap.State)
+	return emu.convertLatestSnapshot(&snap)
 }
 
-func (emu *emuState) convertLatestSnapshot(jsonBytes json.RawMessage) (*emuState, error) {
+func (emu *emuState) convertLatestSnapshot(snap *snapshot) (*emuState, error) {
+
 	var err error
 	var newState emuState
-	if err = json.Unmarshal(jsonBytes, &newState); err != nil {
+
+	if err = json.Unmarshal(snap.State, &newState); err != nil {
 		return nil, err
 	}
+
+	if newState.Mem.mapper, err = unmarshalMapper(snap.Mapper); err != nil {
+		return nil, err
+	}
+
+	newState.Mem.rom = emu.Mem.rom
+
+	newState.CPU.Write = newState.write
+	newState.CPU.Read = newState.read
+	newState.CPU.RunCycles = newState.runCycles
+	newState.CPU.Err = func(e error) { emuErr(e) }
+
 	return &newState, nil
 }
 
-var snapshotConverters = map[int]func([]byte) []byte{
+var snapshotConverters = map[int]func(map[string]interface{}) error{
+
 // If new field can be zero, no need for converter.
+
 // Converters should look like this (including comment):
 // added 2017-XX-XX
-// 1: func(stateBytes []byte) []byte {
-// 	stateBytes = stateBytes[:len(stateBytes)-1]
-// 	return append(stateBytes, []byte(",\"ExampleNewField\":0}")...)
-// },
+// 1: convertSnap0To1,
 }
 
 func (emu *emuState) convertOldSnapshot(snap *snapshot) (*emuState, error) {
 
-	var err error
-	var newState *emuState
-
-	// unfortunately, can't use json, as go is crazy enough to make it so
-	// converting something in and out of json as a map[string]interface{}
-	// will kill the ability to import it back in as a struct. so we have
-	// to change it by hand to keep the go conventions that go will break
-	// otherwise :/
-	stateBytes := []byte(snap.State)
+	var state map[string]interface{}
+	if err := json.Unmarshal(snap.State, &state); err != nil {
+		return nil, fmt.Errorf("json unpack err: %v", err)
+	}
 
 	for i := snap.Version; i < currentSnapshotVersion; i++ {
-		converterFn, ok := snapshotConverters[snap.Version]
-		if !ok {
+		if converterFn, ok := snapshotConverters[snap.Version]; !ok {
 			return nil, fmt.Errorf("unknown snapshot version: %v", snap.Version)
+		} else if err := converterFn(state); err != nil {
+			return nil, fmt.Errorf("error converting snapshot version %v: %v", i, err)
 		}
-		stateBytes = converterFn(stateBytes)
 	}
 
-	newState, err = emu.convertLatestSnapshot(stateBytes)
-	if err != nil {
-		return nil, fmt.Errorf("post-convert unpack err: %v", err)
+	var err error
+	if snap.State, err = json.Marshal(state); err != nil {
+		return nil, fmt.Errorf("json pack err: %v", err)
 	}
-	return newState, nil
+
+	return emu.convertLatestSnapshot(snap)
 }
 
 func (emu *emuState) makeSnapshot() []byte {
@@ -97,6 +106,7 @@ func (emu *emuState) makeSnapshot() []byte {
 		Version: currentSnapshotVersion,
 		Info:    infoString,
 		State:   json.RawMessage(emuJSON),
+		Mapper:  marshalMapper(emu.Mem.mapper),
 	}
 	if snapJSON, err = json.Marshal(&snap); err != nil {
 		panic(err)

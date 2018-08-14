@@ -300,12 +300,14 @@ func (emu *emuState) stepNoDbg() {
 }
 
 func (emu *emuState) debugStatusLine() string {
-	return fmt.Sprintf("%sT:0x%02x Tstep:%04d, sX:%03d sY:%03d",
+	return fmt.Sprintf("%sT:0x%02x Tstep:%04d, sX:%03d sY:%03d, p1X:%03d, p1Vx:%03d",
 		emu.CPU.DebugStatusLine(),
 		emu.Timer.Val,
 		emu.Timer.Interval,
 		emu.TIA.ScreenX,
 		emu.TIA.ScreenY,
+		emu.TIA.P1.X,
+		emu.TIA.P1.Vx,
 	)
 }
 
@@ -347,7 +349,8 @@ func (emu *emuState) ReadSoundBuffer(toFill []byte) []byte {
 func initEmuState(emu *emuState, cart []byte) {
 	*emu = emuState{
 		Mem: mem{
-			rom: cart,
+			mapper: &mapperUnknown{},
+			rom:    cart,
 		},
 		Timer: timer{
 			Interval: 1024,
