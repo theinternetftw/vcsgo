@@ -80,7 +80,7 @@ type mapperUnknown struct{}
 
 func (m *mapperUnknown) read(mem *mem, addr uint16) byte {
 	maskedAddr := addr & 0xfff
-	if len(mem.rom) < 0xfff {
+	if len(mem.rom) < 0x1000 {
 		// should be a power of two but let's handle weird homebrew bins
 		maskedAddr %= uint16(len(mem.rom))
 	}
