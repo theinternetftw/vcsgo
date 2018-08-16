@@ -21,6 +21,12 @@ func unmarshalMapper(m marshalledMapper) (mapper, error) {
 	switch m.Number {
 	case 0x00:
 		mapper = &mapperUnknown{}
+	case 0xdc:
+		mapper = &mapperDC{}
+	case 0xe0:
+		mapper = &mapperE0{}
+	case 0xe7:
+		mapper = &mapperE7{}
 	case 0xf0:
 		mapper = &mapperF0{}
 	case 0xf4:
@@ -31,6 +37,8 @@ func unmarshalMapper(m marshalledMapper) (mapper, error) {
 		mapper = makeMapperF8()
 	case 0xfa:
 		mapper = &mapperFA{}
+	case 0xfe:
+		mapper = &mapperFE{}
 	default:
 		return nil, fmt.Errorf("state contained unknown mapper number 0x%04x", m.Number)
 	}
@@ -83,6 +91,10 @@ func (m *mapperUnknown) read(mem *mem, addr uint16) byte {
 	if len(mem.rom) < 0x1000 {
 		// should be a power of two but let's handle weird homebrew bins
 		maskedAddr %= uint16(len(mem.rom))
+	} else if len(mem.rom) > 0x1000 {
+		// match those mappers that set some last chunk to the last bit of ROM
+		bankStart := uint16(len(mem.rom) - 0x1000)
+		return mem.rom[bankStart+maskedAddr]
 	}
 	return mem.rom[maskedAddr]
 }
@@ -102,6 +114,7 @@ type mapperStd struct {
 }
 
 func (m *mapperStd) read(mem *mem, addr uint16) byte {
+	addr &= 0x1fff
 	var val byte
 	if m.Superchip.Activated && addr >= 0x1000 && addr <= 0x10ff {
 		val = m.Superchip.read(addr)
@@ -114,6 +127,7 @@ func (m *mapperStd) read(mem *mem, addr uint16) byte {
 	return val
 }
 func (m *mapperStd) write(mem *mem, addr uint16, val byte) {
+	addr &= 0x1fff
 	if addr >= 0x1000 && addr <= 0x107f {
 		m.Superchip.write(addr, val)
 	} else if addr >= m.CtrlAddrLow && addr <= m.CtrlAddrHigh {
@@ -146,6 +160,7 @@ type mapperFA struct {
 }
 
 func (m *mapperFA) read(mem *mem, addr uint16) byte {
+	addr &= 0x1fff
 	var val byte
 	if addr >= 0x1100 && addr <= 0x11ff {
 		val = m.MapperRAM[addr&0xff]
@@ -160,6 +175,7 @@ func (m *mapperFA) read(mem *mem, addr uint16) byte {
 	return val
 }
 func (m *mapperFA) write(mem *mem, addr uint16, val byte) {
+	addr &= 0x1fff
 	if addr >= 0x1000 && addr <= 0x10ff {
 		m.MapperRAM[addr-0x1000] = val
 	} else if addr >= 0x1ff8 && addr <= 0x1ffa {
@@ -175,6 +191,7 @@ type mapperF0 struct {
 }
 
 func (m *mapperF0) read(mem *mem, addr uint16) byte {
+	addr &= 0x1fff
 	var val byte
 	if addr == 0x1fec {
 		val = byte(m.BankNum)
@@ -187,6 +204,7 @@ func (m *mapperF0) read(mem *mem, addr uint16) byte {
 	return val
 }
 func (m *mapperF0) write(mem *mem, addr uint16, val byte) {
+	addr &= 0x1fff
 	if addr == 0x1ff0 {
 		m.BankNum = (m.BankNum + 1) & 0x0f
 	}
@@ -195,90 +213,130 @@ func (m *mapperF0) getMapperNum() uint16 {
 	return 0xf0
 }
 
-func (emu *emuState) guessMapperFromAddr(addr uint16) mapper {
-
-	addr &= 0x1fff
-
-	switch len(emu.Mem.rom) {
-	case 8 * 1024:
-		/*
-			if addr == 0x003f {
-				fmt.Println("MAPPER: 8k 3f")
-				// NOTE: it could be writing anywhere from 00-3f if they don't
-				// care about trashing TIA, but lets only check for 3f for now
-				return 0x3f
-			} else if addr >= 0x1fe0 && addr < 0x1ff8 {
-				fmt.Println("MAPPER: 8k e0")
-				// NOTE: FIXME(?): Assuming that E0 mappers will *not* write to 0x1ff8 first. Basically just hoping to get lucky.
-				return 0xe0
-			}
-		*/
-		if addr == 0x1ff8 || addr == 0x1ff9 {
-			fmt.Println("MAPPER: 8k f8")
-			return makeMapperF8()
-		}
-
-	case 12 * 1024:
-		fmt.Println("MAPPER: 12k fa")
-		return &mapperFA{}
-
-	case 16 * 1024:
-		if addr >= 0x1ff6 && addr <= 0x1ff9 {
-			fmt.Println("MAPPER: 16k f6")
-			return makeMapperF6()
-		}
-		/*
-			if addr >= 0x1fe0 && addr < 0x1fe7 {
-				emuErr("0xe7 mapper not yet supported")
-				//return 0xe7
-			}
-		*/
-
-	case 32 * 1024:
-		fmt.Println("MAPPER: 32k f4")
-		return makeMapperF4()
-
-	case 64 * 1024:
-		fmt.Println("MAPPER: 64k f0")
-		return &mapperF0{}
-
-	default:
-		emuErr(fmt.Sprint("unknown rom size", len(emu.Mem.rom)))
-	}
-	return emu.Mem.mapper
+type mapperE0 struct {
+	SelectedBanks [4]uint16
 }
 
-// TODO: REMAINING MAPPERS
-/*
-	WRITES
-		switch emu.Mem.MapperNum {
-		case 0xe0:
-			if addr >= 0x1fe0 && addr <= 0x1ff8 {
-				sliceNum := ((addr - 0x1fe0) >> 3) & 3
-				bankNum := byte((addr - 0x1fe0) & 7)
-				emu.Mem.SelectedBanks[sliceNum] = bankNum
-			}
-		case 0x3f:
-			// in tia write section:
-			// TODO: (have to have mapper control entire write?)
-		    if emu.Mem.MapperNum == 0x3f {
-				emu.Mem.SelectedBanks[0] = val & 0x03
-			}
-	READS
-		switch emu.Mem.MapperNum {
-		case 0xe0:
-			if maskedAddr < 0xc00 {
-				selector := maskedAddr >> 10
-				bank := uint16(emu.Mem.SelectedBanks[selector])
-				val = emu.Mem.rom[bank*1024+(maskedAddr&0x3ff)]
-			} else {
-				val = emu.Mem.rom[7*1024+(maskedAddr&0x3ff)]
-			}
-		case 0x3f:
-			if maskedAddr < 0x800 {
-				bank := uint16(emu.Mem.SelectedBanks[0])
-				val = emu.Mem.rom[bank*2048+maskedAddr]
-			} else {
-				val = emu.Mem.rom[3*2048+(maskedAddr&0x7ff)]
-			}
-*/
+func (m *mapperE0) read(mem *mem, addr uint16) byte {
+	addr &= 0x1fff
+	if addr >= 0x1c00 {
+		m.setBankIf(addr)
+		return mem.rom[7*1024+(addr&0x3ff)]
+	}
+	bankZone := (addr & 0xfff) >> 10
+	bank := uint16(m.SelectedBanks[bankZone])
+	return mem.rom[bank*1024+(addr&0x3ff)]
+}
+func (m *mapperE0) setBankIf(addr uint16) {
+	if addr >= 0x1fe0 && addr <= 0x1ff8 {
+		sliceNum := ((addr - 0x1fe0) >> 3) & 3
+		bankNum := (addr - 0x1fe0) & 7
+		m.SelectedBanks[sliceNum] = bankNum
+	}
+}
+func (m *mapperE0) write(mem *mem, addr uint16, val byte) {
+	addr &= 0x1fff
+	m.setBankIf(addr)
+}
+func (m *mapperE0) getMapperNum() uint16 {
+	return 0xe0
+}
+
+type mapper3F struct {
+	BankNum uint16
+}
+
+func (m *mapper3F) read(mem *mem, addr uint16) byte {
+	addr &= 0x1fff
+	if addr < 0x1800 {
+		return mem.rom[m.BankNum*2048+(addr&0x7ff)]
+	}
+	romLen := uint16(len(mem.rom))
+	return mem.rom[romLen-2048+(addr&0x7ff)]
+}
+func (m *mapper3F) write(mem *mem, addr uint16, val byte) {
+	addr &= 0x1fff
+	if addr >= 0 && addr <= 0x3f {
+		m.BankNum = uint16(val)
+	}
+}
+func (m *mapper3F) getMapperNum() uint16 {
+	return 0x3f
+}
+
+type mapperFE struct {
+	BankNum uint16
+}
+
+func (m *mapperFE) read(mem *mem, addr uint16) byte {
+	if addr&0x2000 > 0 {
+		return mem.rom[addr&0xfff]
+	}
+	return mem.rom[4096+(addr&0xfff)]
+}
+func (m *mapperFE) write(mem *mem, addr uint16, val byte) {}
+func (m *mapperFE) getMapperNum() uint16 {
+	return 0xfe
+}
+
+type mapperE7 struct {
+	BankNum      uint16
+	RAMBankNum   uint16
+	RAM          [2048]byte
+	BigRAMBankOn bool
+}
+
+func (m *mapperE7) read(mem *mem, addr uint16) byte {
+	addr &= 0x1fff
+	var val byte
+	if addr >= 0x1400 && addr <= 0x17ff && m.BankNum == 8 {
+		val = m.RAM[addr-0x1000]
+	} else if addr >= 0x1000 && addr <= 0x17ff {
+		val = mem.rom[m.BankNum*2048+(addr-0x1000)]
+	} else if addr >= 0x1800 && addr <= 0x18ff {
+		val = 0 // write area of RAM, TODO: actual behavior
+	} else if addr >= 0x1900 && addr <= 0x19ff {
+		ramStart := 1024 + m.RAMBankNum*256
+		val = m.RAM[ramStart+(addr-0x1900)]
+	} else { // all that's left is >= 0x1a00
+		romLen := uint16(len(mem.rom))
+		val = mem.rom[romLen-1536+(addr-0x1a00)]
+		m.setBankIf(addr)
+	}
+	return val
+}
+func (m *mapperE7) write(mem *mem, addr uint16, val byte) {
+	addr &= 0x1fff
+	if addr >= 0x1000 && addr <= 0x13ff && m.BankNum == 8 {
+		m.RAM[addr-0x1000] = val
+	} else if addr >= 0x1800 && addr <= 0x18ff {
+		ramStart := 1024 + m.RAMBankNum*256
+		m.RAM[ramStart+(addr-0x1800)] = val
+	}
+	m.setBankIf(addr)
+}
+func (m *mapperE7) setBankIf(addr uint16) {
+	if addr >= 0x1fe0 && addr <= 0x1fe6 {
+		m.BankNum = (addr - 0x1fe0)
+	} else if addr == 0x1fe7 {
+		m.BankNum = 8 // RAM
+	} else if addr >= 0x1fe8 && addr <= 0x1feb {
+		m.RAMBankNum = addr - 0x1fe8
+	}
+}
+func (m *mapperE7) getMapperNum() uint16 {
+	return 0xe7
+}
+
+type mapperDC struct {
+	BankNum uint16
+}
+
+func (m *mapperDC) read(mem *mem, addr uint16) byte {
+	return 0
+}
+func (m *mapperDC) write(mem *mem, addr uint16, val byte) {
+}
+func (m *mapperDC) getMapperNum() uint16 {
+	return 0xdc
+}

@@ -349,7 +349,7 @@ func (emu *emuState) ReadSoundBuffer(toFill []byte) []byte {
 func initEmuState(emu *emuState, cart []byte) {
 	*emu = emuState{
 		Mem: mem{
-			mapper: &mapperUnknown{},
+			mapper: loadMapperFromRomHash(cart),
 			rom:    cart,
 		},
 		Timer: timer{
@@ -387,11 +387,14 @@ func newState(cart []byte) *emuState {
 	var emu emuState
 
 	initEmuState(&emu, cart)
+	fmt.Println("ROM Size:", len(emu.Mem.rom))
+	fmt.Printf("Mapper: 0x%02x\n", emu.Mem.mapper.getMapperNum())
 	tvFormat := discoverTVFormat(&emu)
 	// start fresh with correct format
 	initEmuState(&emu, cart)
 	emu.TIA.TVFormat = tvFormat
 	emu.TIA.FormatSet = true
+	fmt.Println()
 
 	return &emu
 }

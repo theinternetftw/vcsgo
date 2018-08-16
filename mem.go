@@ -7,11 +7,12 @@ type mem struct {
 
 	rom    []byte
 	mapper mapper
+
+	lastWriteAddr uint16 // unfortunately necessary for a mapper hack
 }
 
 func (emu *emuState) read(addr uint16) byte {
 	origAddr := addr
-	addr &= 0x1fff
 
 	if emu.Mem.mapper.getMapperNum() == 0 && len(emu.Mem.rom) > 4096 {
 		emu.Mem.mapper = emu.guessMapperFromAddr(addr)
@@ -136,7 +137,6 @@ func (emu *emuState) read(addr uint16) byte {
 
 func (emu *emuState) write(addr uint16, val byte) {
 	origAddr := addr
-	addr &= 0x1fff
 
 	if emu.Mem.mapper.getMapperNum() == 0 && len(emu.Mem.rom) > 4096 {
 		emu.Mem.mapper = emu.guessMapperFromAddr(addr)
@@ -156,6 +156,10 @@ func (emu *emuState) write(addr uint16, val byte) {
 		// TIA
 
 		maskedAddr := addr & 0x3f
+
+		if emu.Mem.mapper.getMapperNum() == 0x3f {
+			emu.Mem.mapper.write(&emu.Mem, addr, val)
+		}
 
 		switch maskedAddr {
 		case 0x00:
@@ -329,4 +333,6 @@ func (emu *emuState) write(addr uint16, val byte) {
 	default:
 		emuErr(fmt.Sprintf("unimplemented: write(0x%04x, 0x%02x)", origAddr, val))
 	}
+
+	emu.Mem.lastWriteAddr = addr
 }
