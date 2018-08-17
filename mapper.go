@@ -23,6 +23,8 @@ func unmarshalMapper(m marshalledMapper) (mapper, error) {
 	switch m.Number {
 	case 0x00:
 		mapper = &mapperUnknown{}
+	case 0xc0:
+		mapper = &mapperC0{}
 	case 0xdc:
 		mapper = makeMapperDC()
 	case 0xe0:
@@ -274,6 +276,29 @@ func (m *mapper3F) write(mem *mem, addr uint16, val byte) {
 func (m *mapper3F) getMapperNum() uint16 { return 0x3f }
 func (m *mapper3F) getBankNum() uint16   { return m.BankNum }
 func (m *mapper3F) runCycle()            {}
+
+type mapperC0 struct {
+	RAM [1024]byte
+}
+
+func (m *mapperC0) read(mem *mem, addr uint16) byte {
+	addr &= 0x1fff
+	if addr >= 0x1000 && addr <= 0x13ff {
+		return m.RAM[addr-0x1000]
+	} else if addr >= 0x1400 && addr <= 0x17ff {
+		return 0xff
+	}
+	return mem.rom[addr-0x1800]
+}
+func (m *mapperC0) write(mem *mem, addr uint16, val byte) {
+	addr &= 0x1fff
+	if addr >= 0x1400 && addr <= 0x17ff {
+		m.RAM[addr-0x1400] = val
+	}
+}
+func (m *mapperC0) getMapperNum() uint16 { return 0xc0 }
+func (m *mapperC0) getBankNum() uint16   { return 0 }
+func (m *mapperC0) runCycle()            {}
 
 type mapperFE struct {
 	BankNum uint16

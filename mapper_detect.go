@@ -8,6 +8,7 @@ import (
 // NOTE: only using hashes for mappers that are no longer
 // used and are tough to add to heuristics without stepping
 // on other mappers (or are tough to use heuristics on).
+
 var mapperListE0 = []string{
 	"27c6a2ca16ad7d814626ceea62fa8fb4", // Frogger II (NTSC)
 	"fb91dfc36cddaa54b09924ae8fd96199", // Frogger II (PAL)
@@ -71,6 +72,10 @@ var mapperListDC = []string{
 	"e34c236630c945089fcdef088c4b6e06", // Pitfall 2 (PAL)
 	"39a6a5a2e1f6297cceaa48bb03af02e9", // Pitfall 2 (Hack)
 }
+var mapperListC0 = []string{
+	"497f3d2970c43e5224be99f75e97cbbb", // Video Life (NTSC)
+	"cddabfd68363a76cd30bee4e8094c646", // Magicard (NTSC)
+}
 
 func findHash(hash string, list []string) bool {
 	for i := range list {
@@ -93,6 +98,9 @@ func loadMapperFromRomHash(rom []byte) mapper {
 	}
 	if findHash(hash, mapperListDC) {
 		return makeMapperDC()
+	}
+	if findHash(hash, mapperListC0) {
+		return &mapperC0{}
 	}
 	return &mapperUnknown{}
 }
