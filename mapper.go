@@ -340,6 +340,7 @@ const dpcROMEnd = 8192 + 2048 - 1
 type dpc struct {
 	MapperF8 mapper
 	Ptrs     [8]dpcPtr
+	LFSR     byte
 }
 
 type dpcPtr struct {
@@ -350,12 +351,18 @@ type dpcPtr struct {
 	MusicMode bool
 }
 
+func (d *dpc) readLFSR() byte {
+	val := d.LFSR
+	d.LFSR = val<<1 | (^(val>>7 ^ val>>5 ^ val>>4 ^ val>>3) & 1)
+	return val
+}
+
 func makeMapperDC() mapper {
 	return &dpc{MapperF8: makeMapperF8NoSC()}
 }
 func (d *dpc) read(mem *mem, addr uint16) byte {
 	if addr >= 0x1000 && addr <= 0x1003 {
-		//fmt.Println("0x1000 NOT IMPL!")
+		return d.readLFSR()
 	} else if addr >= 0x1004 && addr <= 0x1007 {
 		return 0
 	} else if addr >= 0x1008 && addr <= 0x100F {
@@ -372,6 +379,8 @@ func (d *dpc) read(mem *mem, addr uint16) byte {
 		fmt.Println("0x1030 NOT IMPL!")
 	} else if addr >= 0x1038 && addr <= 0x103f {
 		fmt.Println("0x1038 NOT IMPL!")
+	} else if addr >= 0x1070 && addr <= 0x1077 {
+		d.LFSR = 0
 	}
 	return d.MapperF8.read(mem, addr)
 }
@@ -388,6 +397,14 @@ func (d *dpc) write(mem *mem, addr uint16, val byte) {
 	} else if addr >= 0x105d && addr <= 0x105f {
 		d.Ptrs[addr-0x1058].setHi(val)
 		d.Ptrs[addr-0x1058].MusicMode = val&0x10 != 0
+	} else if addr >= 0x1060 && addr <= 0x1067 {
+		// fmt.Println("0x1060 NOT IMPL!")
+	} else if addr >= 0x1068 && addr <= 0x106f {
+		// not used
+	} else if addr >= 0x1070 && addr <= 0x1077 {
+		d.LFSR = 0
+	} else if addr >= 0x1078 && addr <= 0x107f {
+		// not used
 	} else {
 		d.MapperF8.write(mem, addr, val)
 	}
