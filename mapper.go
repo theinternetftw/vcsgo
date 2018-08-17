@@ -347,13 +347,18 @@ type dpcPtr struct {
 	ShowStart byte
 	ShowEnd   byte
 	Show      bool
+	MusicMode bool
 }
 
 func makeMapperDC() mapper {
 	return &dpc{MapperF8: makeMapperF8NoSC()}
 }
 func (d *dpc) read(mem *mem, addr uint16) byte {
-	if addr >= 0x1008 && addr <= 0x100F {
+	if addr >= 0x1000 && addr <= 0x1003 {
+		//fmt.Println("0x1000 NOT IMPL!")
+	} else if addr >= 0x1004 && addr <= 0x1007 {
+		return 0
+	} else if addr >= 0x1008 && addr <= 0x100F {
 		return d.Ptrs[addr-0x1008].read(mem)
 	} else if addr >= 0x1010 && addr <= 0x1017 {
 		return d.Ptrs[addr-0x1010].readMasked(mem)
@@ -369,6 +374,27 @@ func (d *dpc) read(mem *mem, addr uint16) byte {
 		fmt.Println("0x1038 NOT IMPL!")
 	}
 	return d.MapperF8.read(mem, addr)
+}
+
+func (d *dpc) write(mem *mem, addr uint16, val byte) {
+	if addr >= 0x1040 && addr <= 0x1047 {
+		d.Ptrs[addr-0x1040].setShowStart(val)
+	} else if addr >= 0x1048 && addr <= 0x104f {
+		d.Ptrs[addr-0x1048].setShowEnd(val)
+	} else if addr >= 0x1050 && addr <= 0x1057 {
+		d.Ptrs[addr-0x1050].setLo(val)
+	} else if addr >= 0x1058 && addr <= 0x105c {
+		d.Ptrs[addr-0x1058].setHi(val)
+	} else if addr >= 0x105d && addr <= 0x105f {
+		d.Ptrs[addr-0x1058].setHi(val)
+		d.Ptrs[addr-0x1058].MusicMode = val&0x10 != 0
+	} else {
+		d.MapperF8.write(mem, addr, val)
+	}
+}
+
+func (d *dpc) getMapperNum() uint16 {
+	return 0xdc
 }
 
 func (p *dpcPtr) read(mem *mem) byte {
@@ -408,21 +434,4 @@ func (p *dpcPtr) setShowStart(val byte) {
 func (p *dpcPtr) setShowEnd(val byte) {
 	p.ShowEnd = val
 	p.Show = false
-}
-
-func (d *dpc) write(mem *mem, addr uint16, val byte) {
-	if addr >= 0x1040 && addr <= 0x1047 {
-		d.Ptrs[addr-0x1040].setShowStart(val)
-	} else if addr >= 0x1048 && addr <= 0x104f {
-		d.Ptrs[addr-0x1048].setShowEnd(val)
-	} else if addr >= 0x1050 && addr <= 0x1057 {
-		d.Ptrs[addr-0x1050].setLo(val)
-	} else if addr >= 0x1058 && addr <= 0x105f {
-		d.Ptrs[addr-0x1058].setHi(val)
-	} else {
-		d.MapperF8.write(mem, addr, val)
-	}
-}
-func (d *dpc) getMapperNum() uint16 {
-	return 0xdc
 }
