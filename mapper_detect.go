@@ -92,7 +92,7 @@ func loadMapperFromRomHash(rom []byte) mapper {
 		return &mapperFE{}
 	}
 	if findHash(hash, mapperListDC) {
-		return &mapperDC{}
+		return makeMapperDC()
 	}
 	return &mapperUnknown{}
 }

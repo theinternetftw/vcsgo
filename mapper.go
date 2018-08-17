@@ -22,7 +22,7 @@ func unmarshalMapper(m marshalledMapper) (mapper, error) {
 	case 0x00:
 		mapper = &mapperUnknown{}
 	case 0xdc:
-		mapper = &mapperDC{}
+		mapper = makeMapperDC()
 	case 0xe0:
 		mapper = &mapperE0{}
 	case 0xe7:
@@ -109,6 +109,7 @@ type mapperStd struct {
 	MapperNum    uint16
 	BankNum      uint16
 	Superchip    superchip
+	NoSuperchip  bool
 	CtrlAddrLow  uint16
 	CtrlAddrHigh uint16
 }
@@ -128,7 +129,7 @@ func (m *mapperStd) read(mem *mem, addr uint16) byte {
 }
 func (m *mapperStd) write(mem *mem, addr uint16, val byte) {
 	addr &= 0x1fff
-	if addr >= 0x1000 && addr <= 0x107f {
+	if !m.NoSuperchip && addr >= 0x1000 && addr <= 0x107f {
 		m.Superchip.write(addr, val)
 	} else if addr >= m.CtrlAddrLow && addr <= m.CtrlAddrHigh {
 		m.BankNum = addr - m.CtrlAddrLow
@@ -141,6 +142,12 @@ func (m *mapperStd) getMapperNum() uint16 {
 func makeMapperF8() mapper {
 	return &mapperStd{
 		MapperNum: 0xf8, CtrlAddrLow: 0x1ff8, CtrlAddrHigh: 0x1ff9,
+	}
+}
+func makeMapperF8NoSC() mapper {
+	return &mapperStd{
+		MapperNum: 0xf8, CtrlAddrLow: 0x1ff8, CtrlAddrHigh: 0x1ff9,
+		NoSuperchip: true,
 	}
 }
 func makeMapperF6() mapper {
@@ -328,15 +335,94 @@ func (m *mapperE7) getMapperNum() uint16 {
 	return 0xe7
 }
 
-type mapperDC struct {
-	BankNum uint16
+const dpcROMEnd = 8192 + 2048 - 1
+
+type dpc struct {
+	MapperF8 mapper
+	Ptrs     [8]dpcPtr
 }
 
-func (m *mapperDC) read(mem *mem, addr uint16) byte {
-	return 0
+type dpcPtr struct {
+	Ptr       uint16
+	ShowStart byte
+	ShowEnd   byte
+	Show      bool
 }
-func (m *mapperDC) write(mem *mem, addr uint16, val byte) {
+
+func makeMapperDC() mapper {
+	return &dpc{MapperF8: makeMapperF8NoSC()}
 }
-func (m *mapperDC) getMapperNum() uint16 {
+func (d *dpc) read(mem *mem, addr uint16) byte {
+	if addr >= 0x1008 && addr <= 0x100F {
+		return d.Ptrs[addr-0x1008].read(mem)
+	} else if addr >= 0x1010 && addr <= 0x1017 {
+		return d.Ptrs[addr-0x1010].readMasked(mem)
+	} else if addr >= 0x1018 && addr <= 0x101F {
+		fmt.Println("0x1018 NOT IMPL!")
+	} else if addr >= 0x1020 && addr <= 0x1027 {
+		fmt.Println("0x1020 NOT IMPL!")
+	} else if addr >= 0x1028 && addr <= 0x102F {
+		fmt.Println("0x1028 NOT IMPL!")
+	} else if addr >= 0x1030 && addr <= 0x1037 {
+		fmt.Println("0x1030 NOT IMPL!")
+	} else if addr >= 0x1038 && addr <= 0x103f {
+		fmt.Println("0x1038 NOT IMPL!")
+	}
+	return d.MapperF8.read(mem, addr)
+}
+
+func (p *dpcPtr) read(mem *mem) byte {
+	p.updateMask()
+	val := mem.rom[dpcROMEnd-(p.Ptr&0x7ff)]
+	p.Ptr--
+	return val
+}
+func (p *dpcPtr) readMasked(mem *mem) byte {
+	p.updateMask()
+	val := byte(0)
+	if p.Show {
+		val = mem.rom[dpcROMEnd-(p.Ptr&0x7ff)]
+	}
+	p.Ptr--
+	return val
+}
+func (p *dpcPtr) updateMask() {
+	if byte(p.Ptr) == p.ShowStart {
+		p.Show = true
+	} else if byte(p.Ptr) == p.ShowEnd {
+		p.Show = false
+	}
+}
+func (p *dpcPtr) setLo(lo byte) {
+	p.Ptr &= 0xff00
+	p.Ptr |= uint16(lo)
+}
+func (p *dpcPtr) setHi(hi byte) {
+	p.Ptr &= 0x00ff
+	p.Ptr |= uint16(hi&0x0f) << 8
+}
+func (p *dpcPtr) setShowStart(val byte) {
+	p.ShowStart = val
+	p.Show = false
+}
+func (p *dpcPtr) setShowEnd(val byte) {
+	p.ShowEnd = val
+	p.Show = false
+}
+
+func (d *dpc) write(mem *mem, addr uint16, val byte) {
+	if addr >= 0x1040 && addr <= 0x1047 {
+		d.Ptrs[addr-0x1040].setShowStart(val)
+	} else if addr >= 0x1048 && addr <= 0x104f {
+		d.Ptrs[addr-0x1048].setShowEnd(val)
+	} else if addr >= 0x1050 && addr <= 0x1057 {
+		d.Ptrs[addr-0x1050].setLo(val)
+	} else if addr >= 0x1058 && addr <= 0x105f {
+		d.Ptrs[addr-0x1058].setHi(val)
+	} else {
+		d.MapperF8.write(mem, addr, val)
+	}
+}
+func (d *dpc) getMapperNum() uint16 {
 	return 0xdc
 }
