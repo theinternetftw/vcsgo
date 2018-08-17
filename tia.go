@@ -9,6 +9,10 @@ type tia struct {
 	DrewThisFrame bool
 	FormatSet     bool
 
+	FrameCount int
+
+	PALFrameCountStart int
+
 	ScreenX int
 	ScreenY int
 
@@ -299,6 +303,7 @@ func (tia *tia) runCycle() {
 	if !tia.WasInVSync && tia.InVSync {
 		tia.WasInVSync = true
 		tia.flipRequested = true
+		tia.FrameCount++
 	} else if tia.WasInVSync && !tia.InVSync {
 		tia.WasInVSync = false
 		// NOTE: Found PAL roms that expect less than 45 lines
@@ -346,10 +351,10 @@ func (tia *tia) runCycle() {
 		tia.ScreenX = -68
 		tia.WaitForHBlank = false
 		tia.InHBlank = true
-		if tia.ScreenY++; tia.ScreenY > 263 {
+		if tia.ScreenY++; tia.ScreenY > 275 {
 			// if a program doesn't vsync, lets just hang
 			// out here at the end of the screen...
-			tia.ScreenY = 263
+			tia.ScreenY = 275
 		}
 	} else if tia.ScreenX == 0 {
 		tia.InHBlank = false
@@ -359,9 +364,13 @@ func (tia *tia) runCycle() {
 
 	if tia.ScreenY == 263 {
 		if !tia.FormatSet && tia.DrewThisFrame {
-			fmt.Println("PAL!")
-			tia.TVFormat = FormatPAL
-			tia.FormatSet = true
+			if tia.PALFrameCountStart == 0 {
+				tia.PALFrameCountStart = tia.FrameCount
+			} else if tia.FrameCount-tia.PALFrameCountStart >= 20 {
+				fmt.Println("PAL!")
+				tia.TVFormat = FormatPAL
+				tia.FormatSet = true
+			}
 		}
 	}
 

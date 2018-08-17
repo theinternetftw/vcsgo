@@ -403,7 +403,7 @@ func newState(cart []byte) *emuState {
 // a few frames and returns whether it thinks its PAL or not
 func discoverTVFormat(emu *emuState) byte {
 
-	const numTestFrames = 10
+	const numTestFrames = 30
 
 	startTime := time.Now()
 
