@@ -9,6 +9,8 @@ type mapper interface {
 	read(mem *mem, addr uint16) byte
 	write(mem *mem, addr uint16, val byte)
 	getMapperNum() uint16
+	getBankNum() uint16
+	runCycle()
 }
 
 type marshalledMapper struct {
@@ -101,9 +103,9 @@ func (m *mapperUnknown) read(mem *mem, addr uint16) byte {
 func (m *mapperUnknown) write(mem *mem, addr uint16, val byte) {
 	return // no writes to ROM addrs
 }
-func (m *mapperUnknown) getMapperNum() uint16 {
-	return 0x00
-}
+func (m *mapperUnknown) getMapperNum() uint16 { return 0x00 }
+func (m *mapperUnknown) getBankNum() uint16   { return 0 }
+func (m *mapperUnknown) runCycle()            {}
 
 type mapperStd struct {
 	MapperNum    uint16
@@ -135,9 +137,9 @@ func (m *mapperStd) write(mem *mem, addr uint16, val byte) {
 		m.BankNum = addr - m.CtrlAddrLow
 	}
 }
-func (m *mapperStd) getMapperNum() uint16 {
-	return m.MapperNum
-}
+func (m *mapperStd) getMapperNum() uint16 { return m.MapperNum }
+func (m *mapperStd) getBankNum() uint16   { return m.BankNum }
+func (m *mapperStd) runCycle()            {}
 
 func makeMapperF8() mapper {
 	return &mapperStd{
@@ -189,9 +191,9 @@ func (m *mapperFA) write(mem *mem, addr uint16, val byte) {
 		m.BankNum = addr - 0x1ff8
 	}
 }
-func (m *mapperFA) getMapperNum() uint16 {
-	return 0xfa
-}
+func (m *mapperFA) getMapperNum() uint16 { return 0xfa }
+func (m *mapperFA) getBankNum() uint16   { return m.BankNum }
+func (m *mapperFA) runCycle()            {}
 
 type mapperF0 struct {
 	BankNum uint16
@@ -216,9 +218,9 @@ func (m *mapperF0) write(mem *mem, addr uint16, val byte) {
 		m.BankNum = (m.BankNum + 1) & 0x0f
 	}
 }
-func (m *mapperF0) getMapperNum() uint16 {
-	return 0xf0
-}
+func (m *mapperF0) getMapperNum() uint16 { return 0xf0 }
+func (m *mapperF0) getBankNum() uint16   { return m.BankNum }
+func (m *mapperF0) runCycle()            {}
 
 type mapperE0 struct {
 	SelectedBanks [4]uint16
@@ -245,9 +247,11 @@ func (m *mapperE0) write(mem *mem, addr uint16, val byte) {
 	addr &= 0x1fff
 	m.setBankIf(addr)
 }
-func (m *mapperE0) getMapperNum() uint16 {
-	return 0xe0
+func (m *mapperE0) getMapperNum() uint16 { return 0xe0 }
+func (m *mapperE0) getBankNum() uint16 {
+	return m.SelectedBanks[0]<<12 | m.SelectedBanks[1]<<8 | m.SelectedBanks[2]<<4 | m.SelectedBanks[3]
 }
+func (m *mapperE0) runCycle() {}
 
 type mapper3F struct {
 	BankNum uint16
@@ -267,9 +271,9 @@ func (m *mapper3F) write(mem *mem, addr uint16, val byte) {
 		m.BankNum = uint16(val)
 	}
 }
-func (m *mapper3F) getMapperNum() uint16 {
-	return 0x3f
-}
+func (m *mapper3F) getMapperNum() uint16 { return 0x3f }
+func (m *mapper3F) getBankNum() uint16   { return m.BankNum }
+func (m *mapper3F) runCycle()            {}
 
 type mapperFE struct {
 	BankNum uint16
@@ -282,9 +286,9 @@ func (m *mapperFE) read(mem *mem, addr uint16) byte {
 	return mem.rom[4096+(addr&0xfff)]
 }
 func (m *mapperFE) write(mem *mem, addr uint16, val byte) {}
-func (m *mapperFE) getMapperNum() uint16 {
-	return 0xfe
-}
+func (m *mapperFE) getMapperNum() uint16                  { return 0xfe }
+func (m *mapperFE) getBankNum() uint16                    { return m.BankNum }
+func (m *mapperFE) runCycle()                             {}
 
 type mapperE7 struct {
 	BankNum      uint16
@@ -331,16 +335,18 @@ func (m *mapperE7) setBankIf(addr uint16) {
 		m.RAMBankNum = addr - 0x1fe8
 	}
 }
-func (m *mapperE7) getMapperNum() uint16 {
-	return 0xe7
-}
+func (m *mapperE7) getMapperNum() uint16 { return 0xe7 }
+func (m *mapperE7) getBankNum() uint16   { return m.BankNum }
+func (m *mapperE7) runCycle()            {}
 
 const dpcROMEnd = 8192 + 2048 - 1
 
 type dpc struct {
-	MapperF8 mapper
-	Ptrs     [8]dpcPtr
-	LFSR     byte
+	MapperF8   mapper
+	Ptrs       [8]dpcPtr
+	LFSR       byte
+	Oscillator byte
+	OscCounter byte
 }
 
 type dpcPtr struct {
@@ -364,21 +370,21 @@ func (d *dpc) read(mem *mem, addr uint16) byte {
 	if addr >= 0x1000 && addr <= 0x1003 {
 		return d.readLFSR()
 	} else if addr >= 0x1004 && addr <= 0x1007 {
-		return 0
+		return d.getMusic()
 	} else if addr >= 0x1008 && addr <= 0x100F {
 		return d.Ptrs[addr-0x1008].read(mem)
 	} else if addr >= 0x1010 && addr <= 0x1017 {
 		return d.Ptrs[addr-0x1010].readMasked(mem)
 	} else if addr >= 0x1018 && addr <= 0x101F {
-		fmt.Println("0x1018 NOT IMPL!")
+		fmt.Println("DPC - 0x1018 NOT IMPL!")
 	} else if addr >= 0x1020 && addr <= 0x1027 {
-		fmt.Println("0x1020 NOT IMPL!")
+		fmt.Println("DPC - 0x1020 NOT IMPL!")
 	} else if addr >= 0x1028 && addr <= 0x102F {
-		fmt.Println("0x1028 NOT IMPL!")
+		fmt.Println("DPC - 0x1028 NOT IMPL!")
 	} else if addr >= 0x1030 && addr <= 0x1037 {
-		fmt.Println("0x1030 NOT IMPL!")
+		fmt.Println("DPC - 0x1030 NOT IMPL!")
 	} else if addr >= 0x1038 && addr <= 0x103f {
-		fmt.Println("0x1038 NOT IMPL!")
+		fmt.Println("DPC - 0x1038 NOT IMPL!")
 	} else if addr >= 0x1070 && addr <= 0x1077 {
 		d.LFSR = 0
 	}
@@ -396,9 +402,11 @@ func (d *dpc) write(mem *mem, addr uint16, val byte) {
 		d.Ptrs[addr-0x1058].setHi(val)
 	} else if addr >= 0x105d && addr <= 0x105f {
 		d.Ptrs[addr-0x1058].setHi(val)
-		d.Ptrs[addr-0x1058].MusicMode = val&0x10 != 0
+		d.Ptrs[addr-0x1058].MusicMode = val&0x10 != 0 || val&0x20 != 0
 	} else if addr >= 0x1060 && addr <= 0x1067 {
-		// fmt.Println("0x1060 NOT IMPL!")
+		if val != 0 {
+			fmt.Println("DPC - 0x1060 NOT IMPL!")
+		}
 	} else if addr >= 0x1068 && addr <= 0x106f {
 		// not used
 	} else if addr >= 0x1070 && addr <= 0x1077 {
@@ -410,10 +418,38 @@ func (d *dpc) write(mem *mem, addr uint16, val byte) {
 	}
 }
 
-func (d *dpc) getMapperNum() uint16 {
-	return 0xdc
+func (d *dpc) getMapperNum() uint16 { return 0xdc }
+func (d *dpc) getBankNum() uint16   { return d.MapperF8.getBankNum() }
+func (d *dpc) runCycle() {
+	if d.OscCounter++; d.OscCounter == 169 {
+		d.OscCounter = 0
+		for i := range d.Ptrs {
+			p := &d.Ptrs[i]
+			if p.MusicMode {
+				p.updateMask()
+				p.Ptr--
+				if p.Ptr&0xff == 0xff {
+					p.setLo(p.ShowStart)
+				}
+			}
+		}
+	}
 }
 
+var dpcMusicMixer = [8]byte{0, 4, 5, 9, 6, 10, 11, 15}
+
+func (d *dpc) getMusic() byte {
+	selector := d.Ptrs[5].getChannel()<<2 | d.Ptrs[6].getChannel()<<1 | d.Ptrs[7].getChannel()
+	val := dpcMusicMixer[selector]
+	return val
+}
+
+func (p *dpcPtr) getChannel() byte {
+	if p.MusicMode && p.Show {
+		return 1
+	}
+	return 0
+}
 func (p *dpcPtr) read(mem *mem) byte {
 	p.updateMask()
 	val := mem.rom[dpcROMEnd-(p.Ptr&0x7ff)]

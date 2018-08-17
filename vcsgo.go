@@ -140,6 +140,7 @@ func (emu *emuState) runCycles(cycles uint) {
 		for j := 0; j < 3; j++ {
 			emu.TIA.runCycle()
 			emu.APU.runCycle()
+			emu.Mem.mapper.runCycle()
 		}
 	}
 	if emu.InputTimingPots {
