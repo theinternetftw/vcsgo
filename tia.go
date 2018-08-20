@@ -263,19 +263,37 @@ var palettes = [2][128][3]byte{
 	palPalette,
 }
 
+func (tia *tia) drawRGB(x, y int, r, g, b byte) {
+	tia.Screen[y*320*4+(2*x)*4] = r
+	tia.Screen[y*320*4+(2*x)*4+1] = g
+	tia.Screen[y*320*4+(2*x)*4+2] = b
+	tia.Screen[y*320*4+(2*x)*4+3] = 0xff
+
+	tia.Screen[y*320*4+(2*x+1)*4] = r
+	tia.Screen[y*320*4+(2*x+1)*4+1] = g
+	tia.Screen[y*320*4+(2*x+1)*4+2] = b
+	tia.Screen[y*320*4+(2*x+1)*4+3] = 0xff
+
+	// for debug
+	if y*320*4+(2*x+2)*4 < len(tia.Screen) {
+		tia.Screen[y*320*4+(2*x+2)*4] = 0xff
+		tia.Screen[y*320*4+(2*x+2)*4+1] = 0xff
+		tia.Screen[y*320*4+(2*x+2)*4+2] = 0xff
+		tia.Screen[y*320*4+(2*x+2)*4+3] = 0xff
+	}
+	if y*320*4+(2*x+3)*4 < len(tia.Screen) {
+		tia.Screen[y*320*4+(2*x+3)*4] = 0xff
+		tia.Screen[y*320*4+(2*x+3)*4+1] = 0xff
+		tia.Screen[y*320*4+(2*x+3)*4+2] = 0xff
+		tia.Screen[y*320*4+(2*x+3)*4+3] = 0xff
+	}
+}
+
 func (tia *tia) drawColor(colorLuma byte) {
 	x, y := int(tia.ScreenX), tia.ScreenY
 	pal := palettes[tia.TVFormat] // TODO: pull this out
 	col := pal[colorLuma>>1]
-	tia.Screen[y*320*4+(2*x)*4] = col[0]
-	tia.Screen[y*320*4+(2*x)*4+1] = col[1]
-	tia.Screen[y*320*4+(2*x)*4+2] = col[2]
-	tia.Screen[y*320*4+(2*x)*4+3] = 0xff
-
-	tia.Screen[y*320*4+(2*x+1)*4] = col[0]
-	tia.Screen[y*320*4+(2*x+1)*4+1] = col[1]
-	tia.Screen[y*320*4+(2*x+1)*4+2] = col[2]
-	tia.Screen[y*320*4+(2*x+1)*4+3] = 0xff
+	tia.drawRGB(x, y, col[0], col[1], col[2])
 }
 
 func (s *sprite) lockMissileToPlayer(player *sprite) {
