@@ -42,6 +42,7 @@ type emuState struct {
 	DebugKeyVal     byte
 	DebugContinue   bool
 	DebugCmdStr     []byte
+	DebugLastCmd    dbgCmd
 
 	Input03TiedToLow           bool
 	InputTimingPots            bool
@@ -192,40 +193,45 @@ const (
 	cmdRunto
 	cmdContinue
 	cmdDisplay
+	cmdStepLine
+	cmdStepFrame
+	cmdRepeat
+	cmdErr
 )
 
 type dbgCmd struct {
-	cType dbgCmdType
-	argPC uint16
+	cType  dbgCmdType
+	argPC  uint16
+	errMsg error
 }
 
-func getDbgCmd(cmdStr string) (dbgCmd, error) {
+func getDbgCmd(cmdStr string) dbgCmd {
 	parts := strings.Split(string(cmdStr), " ")
-	if len(parts) == 1 && (parts[0] == "" || parts[0] == "s") {
-		return dbgCmd{cmdStep, 0}, nil
+	if len(parts) == 1 && parts[0] == "" {
+		return dbgCmd{cType: cmdRepeat}
 	}
 	switch parts[0] {
+	case "s":
+		return dbgCmd{cType: cmdStep}
 	case "c":
-		if len(parts) > 1 {
-			return dbgCmd{}, fmt.Errorf("continue takes no args")
-		}
-		return dbgCmd{cmdContinue, 0}, nil
+		return dbgCmd{cType: cmdContinue}
+	case "l":
+		return dbgCmd{cType: cmdStepLine}
+	case "f":
+		return dbgCmd{cType: cmdStepFrame}
 	case "d":
-		if len(parts) > 1 {
-			return dbgCmd{}, fmt.Errorf("display takes no args")
-		}
-		return dbgCmd{cmdDisplay, 0}, nil
+		return dbgCmd{cType: cmdDisplay}
 	case "r":
 		if len(parts) < 2 {
-			return dbgCmd{}, fmt.Errorf("need pc arg")
+			return dbgCmd{cType: cmdErr, errMsg: fmt.Errorf("need pc arg")}
 		}
 		i, err := strconv.ParseUint(parts[1], 16, 16)
 		if err != nil {
-			return dbgCmd{}, fmt.Errorf("bad pc arg: %v", err)
+			return dbgCmd{cType: cmdErr, errMsg: fmt.Errorf("bad pc arg: %v", err)}
 		}
-		return dbgCmd{cmdRunto, uint16(i)}, nil
+		return dbgCmd{cType: cmdRunto, argPC: uint16(i)}
 	default:
-		return dbgCmd{}, fmt.Errorf("unknown command %q", parts[0])
+		return dbgCmd{cType: cmdErr, errMsg: fmt.Errorf("unknown command %q", parts[0])}
 	}
 }
 
@@ -257,38 +263,63 @@ func (emu *emuState) step() {
 		cmdStr := string(emu.DebugCmdStr)
 		emu.DebugCmdStr = emu.DebugCmdStr[:0]
 
-		if cmd, err := getDbgCmd(cmdStr); err != nil {
-			fmt.Printf("* ERR - %v\n", err)
-			return
-		} else if cmd.cType == cmdContinue {
-			emu.DebugContinue = true
-		} else if cmd.cType == cmdDisplay {
-			fmt.Println(emu.debugStatusLine())
-			return
-		} else if cmd.cType == cmdStep {
-			fmt.Println(emu.debugStatusLine())
-		} else if cmd.cType == cmdRunto {
+		runUntil := func(cond func() bool, timeout time.Duration) {
 			start := time.Now()
-			timeout := 5 * time.Second
-			fmt.Printf("running to 0x%04x\n", cmd.argPC)
-			for emu.CPU.PC != uint16(cmd.argPC) {
+			for !cond() {
 				emu.stepNoDbg()
 				if time.Now().Sub(start) > timeout {
 					fmt.Printf("TIMED OUT: ran to 0x%04x\n", emu.CPU.PC)
 					break
 				}
 			}
-			fmt.Println(emu.debugStatusLine())
-		} else {
-			fmt.Println("* ERR - unknown BUT PARSED command")
-			return
 		}
+
+		cmd := getDbgCmd(cmdStr)
+
+		if cmd.cType == cmdRepeat {
+			cmd = emu.DebugLastCmd
+		}
+
+		switch cmd.cType {
+		case cmdContinue:
+			emu.DebugContinue = true
+		case cmdDisplay:
+			fmt.Println(emu.debugStatusLine())
+		case cmdStep:
+			emu.stepNoDbg()
+			fmt.Println(emu.debugStatusLine())
+		case cmdStepLine:
+			fmt.Println("stepping to next scanline")
+			startLine := emu.TIA.ScreenY
+			runUntil(func() bool {
+				return startLine != emu.TIA.ScreenY
+			}, 5*time.Second)
+			fmt.Println(emu.debugStatusLine())
+		case cmdStepFrame:
+			fmt.Println("stepping to next frame")
+			startFrame := emu.TIA.FrameCount
+			runUntil(func() bool {
+				return startFrame != emu.TIA.FrameCount
+			}, 5*time.Second)
+			fmt.Println(emu.debugStatusLine())
+		case cmdRunto:
+			fmt.Printf("running to 0x%04x\n", cmd.argPC)
+			runUntil(func() bool {
+				return emu.CPU.PC == cmd.argPC
+			}, 5*time.Second)
+			fmt.Println(emu.debugStatusLine())
+		case cmdErr:
+			fmt.Printf("* ERR - %v\n", cmd.errMsg)
+		default:
+			fmt.Println("* ERR - unknown BUT PARSED command")
+		}
+		emu.DebugLastCmd = cmd
+
 		emu.TIA.flipRequested = true
+	} else {
+		//if showMemReads { fmt.Println() }
+		emu.stepNoDbg()
 	}
-
-	//if showMemReads { fmt.Println() }
-
-	emu.stepNoDbg()
 }
 
 func (emu *emuState) stepNoDbg() {
