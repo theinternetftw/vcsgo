@@ -285,13 +285,13 @@ func (tia *tia) drawRGB(x, y int, r, g, b byte) {
 	tia.Screen[y*320*4+(2*x+1)*4+3] = 0xff
 
 	// for debug
-	if y*320*4+(2*x+2)*4 < len(tia.Screen) {
+	if x+1 < 160 {
 		tia.Screen[y*320*4+(2*x+2)*4] = 0xff
 		tia.Screen[y*320*4+(2*x+2)*4+1] = 0xff
 		tia.Screen[y*320*4+(2*x+2)*4+2] = 0xff
 		tia.Screen[y*320*4+(2*x+2)*4+3] = 0xff
 	}
-	if y*320*4+(2*x+3)*4 < len(tia.Screen) {
+	if x+2 < 160 {
 		tia.Screen[y*320*4+(2*x+3)*4] = 0xff
 		tia.Screen[y*320*4+(2*x+3)*4+1] = 0xff
 		tia.Screen[y*320*4+(2*x+3)*4+2] = 0xff
