@@ -43,6 +43,9 @@ type Input struct {
 	Paddle1 Paddle
 	Paddle2 Paddle
 	Paddle3 Paddle
+
+	Keypad0 [12]bool
+	Keypad1 [12]bool
 }
 
 // Joystick represents the buttons on a joystick

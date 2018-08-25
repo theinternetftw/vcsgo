@@ -104,26 +104,42 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 			{
 				window.CopyKeyCharArray(newInput.Keys[:])
 
-				newInput.ResetButton = window.CodeIsDown(key.CodeF1)
-				newInput.SelectButton = window.CodeIsDown(key.CodeF2)
+				cid := func (c key.Code) bool { return window.CodeIsDown(c) }
 
-				newInput.JoyP0.Up = window.CodeIsDown(key.CodeW)
-				newInput.JoyP0.Down = window.CodeIsDown(key.CodeS)
-				newInput.JoyP0.Left = window.CodeIsDown(key.CodeA)
-				newInput.JoyP0.Right = window.CodeIsDown(key.CodeD)
-				newInput.JoyP0.Button = window.CodeIsDown(key.CodeJ)
+				newInput.ResetButton = cid(key.CodeF1)
+				newInput.SelectButton = cid(key.CodeF2)
+
+				newInput.JoyP0.Up = cid(key.CodeW)
+				newInput.JoyP0.Down = cid(key.CodeS)
+				newInput.JoyP0.Left = cid(key.CodeA)
+				newInput.JoyP0.Right = cid(key.CodeD)
+				newInput.JoyP0.Button = cid(key.CodeJ)
 
 				// TODO: switch between input methods (arg switch, plus
 				//  about 20 MD5s for the games that use paddles)
-				if window.CodeIsDown(key.CodeA) {
+				if cid(key.CodeA) {
 					paddles[0].left(inputDt)
-				} else if window.CodeIsDown(key.CodeD) {
+				} else if cid(key.CodeD) {
 					paddles[0].right(inputDt)
 				} else {
 					paddles[0].noMove(inputDt)
 				}
 				newInput.Paddle0.Button = window.CodeIsDown(key.CodeJ)
 				newInput.Paddle0.Position = int16(paddles[0].pos)
+
+				newInput.Keypad0 = [12]bool{
+					cid(key.Code1), cid(key.Code2), cid(key.Code3),
+					cid(key.CodeQ), cid(key.CodeW), cid(key.CodeE),
+					cid(key.CodeA), cid(key.CodeS), cid(key.CodeD),
+					cid(key.CodeZ), cid(key.CodeX), cid(key.CodeC),
+				}
+
+				newInput.Keypad1 = [12]bool{
+					cid(key.Code4), cid(key.Code5), cid(key.Code6),
+					cid(key.CodeR), cid(key.CodeT), cid(key.CodeY),
+					cid(key.CodeF), cid(key.CodeG), cid(key.CodeH),
+					cid(key.CodeV), cid(key.CodeB), cid(key.CodeN),
+				}
 
 				if window.CodeIsDown(key.CodeLeftArrow) {
 					paddles[1].left(inputDt)
@@ -209,7 +225,7 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 			}
 			frameCount++
 			if frameCount & 0x1ff == 0 {
-				//fmt.Printf("maxRTime %.4f, maxFTime %.4f\n", maxRDiff.Seconds(), maxFDiff)
+				fmt.Printf("maxRTime %.4f, maxFTime %.4f\n", maxRDiff.Seconds(), maxFDiff)
 				maxRDiff = 0
 				maxFDiff = 0
 			}

@@ -48,7 +48,7 @@ type emuState struct {
 	InputTimingPots            bool
 	InputTimingPotsStartCycles uint64
 
-	InputTimingPotsEverTouched bool
+	InputTimingPotsEverChecked bool
 
 	Paddle0InputCharged bool
 	Paddle1InputCharged bool
@@ -65,6 +65,13 @@ type emuState struct {
 
 	DDRModeMaskPortA byte
 	DDRModeMaskPortB byte
+
+	DirectionPortA byte
+
+	RowSelKeypad0       byte
+	RowSelKeypad1       byte
+	EverSelectedKeypad0 bool
+	EverSelectedKeypad1 bool
 
 	Cycles uint64
 }
@@ -361,7 +368,7 @@ func (emu *emuState) updateInput(input Input) {
 		}
 	}
 
-	if emu.InputTimingPotsEverTouched {
+	if emu.InputTimingPotsEverChecked {
 		input.JoyP0 = Joystick{}
 		input.JoyP1 = Joystick{}
 	} else {
@@ -369,6 +376,11 @@ func (emu *emuState) updateInput(input Input) {
 		input.Paddle1 = Paddle{}
 		input.Paddle2 = Paddle{}
 		input.Paddle3 = Paddle{}
+	}
+
+	// NOTE: just thanks to current keypad/joystick keybindings
+	if emu.EverSelectedKeypad0 {
+		input.JoyP0 = Joystick{}
 	}
 
 	emu.Input = input

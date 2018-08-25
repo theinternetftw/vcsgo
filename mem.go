@@ -52,15 +52,55 @@ func (emu *emuState) read(addr uint16) byte {
 			val = boolBit(7, emu.TIA.Collisions.P0P1)
 			val |= boolBit(6, emu.TIA.Collisions.M0M1)
 
-		// TODO: keypad?
 		case 0x08:
 			val = boolBit(7, emu.Paddle0InputCharged)
+			// TODO: could you sel, change DDR, and still check these bits?
+			if emu.DDRModeMaskPortA == 0xff {
+				val = boolBit(7,
+					!((emu.RowSelKeypad0&1 > 0 && emu.Input.Keypad0[0]) ||
+						(emu.RowSelKeypad0&2 > 0 && emu.Input.Keypad0[3]) ||
+						(emu.RowSelKeypad0&4 > 0 && emu.Input.Keypad0[6]) ||
+						(emu.RowSelKeypad0&8 > 0 && emu.Input.Keypad0[9])))
+			} else if emu.InputTimingPots && !emu.InputTimingPotsEverChecked {
+				fmt.Println("Found Paddle code, turning off joysticks!")
+				emu.InputTimingPotsEverChecked = true
+			}
 		case 0x09:
 			val = boolBit(7, emu.Paddle1InputCharged)
+			if emu.DDRModeMaskPortA == 0xff {
+				val = boolBit(7,
+					!((emu.RowSelKeypad0&1 > 0 && emu.Input.Keypad0[1]) ||
+						(emu.RowSelKeypad0&2 > 0 && emu.Input.Keypad0[4]) ||
+						(emu.RowSelKeypad0&4 > 0 && emu.Input.Keypad0[7]) ||
+						(emu.RowSelKeypad0&8 > 0 && emu.Input.Keypad0[10])))
+			} else if emu.InputTimingPots && !emu.InputTimingPotsEverChecked {
+				fmt.Println("Found Paddle code, turning off joysticks!")
+				emu.InputTimingPotsEverChecked = true
+			}
 		case 0x0a:
 			val = boolBit(7, emu.Paddle2InputCharged)
+			if emu.DDRModeMaskPortA == 0xff {
+				val = boolBit(7,
+					!((emu.RowSelKeypad1&1 > 0 && emu.Input.Keypad1[0]) ||
+						(emu.RowSelKeypad1&2 > 0 && emu.Input.Keypad1[3]) ||
+						(emu.RowSelKeypad1&4 > 0 && emu.Input.Keypad1[6]) ||
+						(emu.RowSelKeypad1&8 > 0 && emu.Input.Keypad1[9])))
+			} else if emu.InputTimingPots && !emu.InputTimingPotsEverChecked {
+				fmt.Println("Found Paddle code, turning off joysticks!")
+				emu.InputTimingPotsEverChecked = true
+			}
 		case 0x0b:
 			val = boolBit(7, emu.Paddle3InputCharged)
+			if emu.DDRModeMaskPortA == 0xff {
+				val = boolBit(7,
+					!((emu.RowSelKeypad1&1 > 0 && emu.Input.Keypad1[1]) ||
+						(emu.RowSelKeypad1&2 > 0 && emu.Input.Keypad1[4]) ||
+						(emu.RowSelKeypad1&4 > 0 && emu.Input.Keypad1[7]) ||
+						(emu.RowSelKeypad1&8 > 0 && emu.Input.Keypad1[10])))
+			} else if emu.InputTimingPots && !emu.InputTimingPotsEverChecked {
+				fmt.Println("Found Paddle code, turning off joysticks!")
+				emu.InputTimingPotsEverChecked = true
+			}
 
 		case 0x0c:
 			if emu.Input45LatchMode {
@@ -68,12 +108,25 @@ func (emu *emuState) read(addr uint16) byte {
 			} else {
 				val = boolBit(7, !emu.Input.JoyP0.Button)
 			}
+			if emu.DDRModeMaskPortA == 0xff {
+				val = boolBit(7,
+					!((emu.RowSelKeypad0&1 > 0 && emu.Input.Keypad0[2]) ||
+						(emu.RowSelKeypad0&2 > 0 && emu.Input.Keypad0[5]) ||
+						(emu.RowSelKeypad0&4 > 0 && emu.Input.Keypad0[8]) ||
+						(emu.RowSelKeypad0&8 > 0 && emu.Input.Keypad0[11])))
+			}
 		case 0x0d:
-			// TODO: other controllers!
 			if emu.Input45LatchMode {
 				val = boolBit(7, emu.Input5LatchVal)
 			} else {
 				val = boolBit(7, !emu.Input.JoyP1.Button)
+			}
+			if emu.DDRModeMaskPortA == 0xff {
+				val = boolBit(7,
+					!((emu.RowSelKeypad1&1 > 0 && emu.Input.Keypad1[2]) ||
+						(emu.RowSelKeypad1&2 > 0 && emu.Input.Keypad1[5]) ||
+						(emu.RowSelKeypad1&4 > 0 && emu.Input.Keypad1[8]) ||
+						(emu.RowSelKeypad1&8 > 0 && emu.Input.Keypad1[11])))
 			}
 
 			//case 0x0e, 0x0f:
@@ -88,18 +141,18 @@ func (emu *emuState) read(addr uint16) byte {
 		maskedAddr := addr & 0x7
 		switch maskedAddr {
 		case 0x0: // 0x280
-			// TODO: support other input methods
-			// TODO: does moved/not moved mean pressed or not?
-			val = byteFromBools(
-				!emu.Input.JoyP0.Right && !emu.Input.Paddle0.Button,
-				!emu.Input.JoyP0.Left && !emu.Input.Paddle1.Button,
-				!emu.Input.JoyP0.Down,
-				!emu.Input.JoyP0.Up,
-				!emu.Input.JoyP1.Right && !emu.Input.Paddle2.Button,
-				!emu.Input.JoyP1.Left && !emu.Input.Paddle3.Button,
-				!emu.Input.JoyP1.Down,
-				!emu.Input.JoyP1.Up,
-			)
+			if emu.DDRModeMaskPortA == 0 {
+				val = byteFromBools(
+					!emu.Input.JoyP0.Right && !emu.Input.Paddle0.Button,
+					!emu.Input.JoyP0.Left && !emu.Input.Paddle1.Button,
+					!emu.Input.JoyP0.Down,
+					!emu.Input.JoyP0.Up,
+					!emu.Input.JoyP1.Right && !emu.Input.Paddle2.Button,
+					!emu.Input.JoyP1.Left && !emu.Input.Paddle3.Button,
+					!emu.Input.JoyP1.Down,
+					!emu.Input.JoyP1.Up,
+				)
+			}
 		case 0x1: // 0x281
 			val = emu.DDRModeMaskPortA
 		case 0x2: // 0x282
@@ -177,10 +230,6 @@ func (emu *emuState) write(addr uint16, val byte) {
 			emu.Input03TiedToLow = val&0x80 != 0
 			if wasTied && !emu.Input03TiedToLow {
 				emu.InputTimingPots = true
-				if !emu.InputTimingPotsEverTouched {
-					fmt.Println("Found Paddle code, turning off joysticks!")
-					emu.InputTimingPotsEverTouched = true
-				}
 				emu.InputTimingPotsStartCycles = emu.Cycles
 			}
 			if emu.Input03TiedToLow {
@@ -304,6 +353,19 @@ func (emu *emuState) write(addr uint16, val byte) {
 		// IO
 		maskedAddr := addr & 0x07
 		switch maskedAddr {
+		case 0x0: // 0x280
+			if emu.DDRModeMaskPortA == 0xff {
+				emu.RowSelKeypad0 = ^val >> 4
+				emu.RowSelKeypad1 = ^val & 0x0f
+				if emu.RowSelKeypad0 > 0 && !emu.EverSelectedKeypad0 {
+					fmt.Println("Keypad0 activated!")
+					emu.EverSelectedKeypad0 = true
+				}
+				if emu.RowSelKeypad1 > 0 && !emu.EverSelectedKeypad1 {
+					fmt.Println("Keypad1 activated!")
+					emu.EverSelectedKeypad1 = true
+				}
+			}
 		case 0x1: // 0x281
 			emu.DDRModeMaskPortA = val
 		case 0x2: // 0x282
@@ -318,6 +380,7 @@ func (emu *emuState) write(addr uint16, val byte) {
 				nil,
 			)
 		case 0x3: // 0x283
+			// TODO: should this be unsettable and tied to 0?
 			emu.DDRModeMaskPortB = val
 		case 0x4: // 0x284, 0x294
 			emu.Timer.writeAnyTIMT(1, val)
