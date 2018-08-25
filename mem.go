@@ -64,7 +64,7 @@ func (emu *emuState) read(addr uint16) byte {
 
 		case 0x0c:
 			if emu.Input45LatchMode {
-				val = boolBit(7, !emu.Input4LatchVal)
+				val = boolBit(7, emu.Input4LatchVal)
 			} else {
 				val = boolBit(7, !emu.Input.JoyP0.Button)
 			}
