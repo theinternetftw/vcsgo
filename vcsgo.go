@@ -48,6 +48,8 @@ type emuState struct {
 	InputTimingPots            bool
 	InputTimingPotsStartCycles uint64
 
+	InputTimingPotsEverTouched bool
+
 	Paddle0InputCharged bool
 	Paddle1InputCharged bool
 	Paddle2InputCharged bool
@@ -143,45 +145,40 @@ func (emu *emuState) runCycles(cycles uint) {
 			emu.APU.runCycle()
 			emu.Mem.mapper.runCycle()
 		}
-	}
-	if emu.InputTimingPots {
-		diff := emu.Cycles - emu.InputTimingPotsStartCycles
-		scanlines := int16(diff / cpuCyclesPerScanline)
-		paddles, regs := []Paddle{
-			emu.Input.Paddle0, emu.Input.Paddle1,
-			emu.Input.Paddle2, emu.Input.Paddle3,
-		}, []*bool{
-			&emu.Paddle0InputCharged, &emu.Paddle1InputCharged,
-			&emu.Paddle2InputCharged, &emu.Paddle3InputCharged,
-		}
-		for i, paddle := range paddles {
-			scanLimit := paddlePosToScanlines(paddle.Position)
-			if paddle.Position < 0 && scanlines >= scanLimit {
+
+		if emu.InputTimingPots {
+			diff := emu.Cycles - emu.InputTimingPotsStartCycles
+			scanlines := int16(diff / cpuCyclesPerScanline)
+			paddles, regs := []Paddle{
+				emu.Input.Paddle0, emu.Input.Paddle1,
+				emu.Input.Paddle2, emu.Input.Paddle3,
+			}, []*bool{
+				&emu.Paddle0InputCharged, &emu.Paddle1InputCharged,
+				&emu.Paddle2InputCharged, &emu.Paddle3InputCharged,
+			}
+			for i, paddle := range paddles {
+				scanLimit := paddlePosToScanlines(paddle.Position)
 				if time.Now().Sub(lastCheck).Seconds() > 0.2 {
-					fmt.Println("pos:", paddle.Position, "limit:", scanLimit, "scanlines:", scanlines)
+					if i == 0 {
+						//fmt.Println("diff:", diff, "pos:", paddle.Position, "limit:", scanLimit, "scanlines:", scanlines, "screenY:", emu.TIA.ScreenY)
+					}
 					lastCheck = time.Now()
 				}
-				*regs[i] = true
+				if scanlines >= scanLimit {
+					*regs[i] = true
+				}
 			}
-		}
-		allDone := true
-		for _, reg := range regs {
-			if !(*reg) {
-				allDone = false
-			}
-		}
-		if allDone {
-			emu.InputTimingPots = false
 		}
 	}
 }
 
 func paddlePosToScanlines(pos int16) int16 {
-	v := int16(float32(135-pos) / 270.0 * 380.0)
+	const outRange = 380
+	v := int16(float32(135-pos) / 270.0 * outRange)
 	if v < 0 {
 		return 0
-	} else if v > 380 {
-		return 380
+	} else if v > outRange {
+		return outRange
 	}
 	return v
 }
@@ -362,6 +359,16 @@ func (emu *emuState) updateInput(input Input) {
 		if emu.Input5LatchVal {
 			emu.Input5LatchVal = !emu.Input.JoyP1.Button
 		}
+	}
+
+	if emu.InputTimingPotsEverTouched {
+		input.JoyP0 = Joystick{}
+		input.JoyP1 = Joystick{}
+	} else {
+		input.Paddle0 = Paddle{}
+		input.Paddle1 = Paddle{}
+		input.Paddle2 = Paddle{}
+		input.Paddle3 = Paddle{}
 	}
 
 	emu.Input = input

@@ -34,6 +34,33 @@ func main() {
 	})
 }
 
+func clamp(min, x, max float32) float32 {
+	if x < min {
+		return min
+	} else if x > max {
+		return max
+	}
+	return x
+}
+type paddlePhys struct {
+	pos, vel float32
+}
+func (p *paddlePhys) move(dir, dt float32) {
+	const maxvel = 135 // degrees/s^2
+	if dir < 0 {
+		p.vel = -maxvel
+	} else if dir > 0 {
+		p.vel = maxvel
+	} else {
+		p.vel = 0
+	}
+	p.pos += p.vel*dt
+	p.pos = clamp(-135, p.pos, 135)
+}
+func (p *paddlePhys) left(dt float32) { p.move(-1, dt) }
+func (p *paddlePhys) right(dt float32) { p.move(1, dt) }
+func (p *paddlePhys) noMove(dt float32) { p.move(0, dt) }
+
 func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator) {
 
 	// FIXME: settings are for debug right now
@@ -56,15 +83,8 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 	lastNumGC := int64(0)
 	gcStats := debug.GCStats{}
 
-	paddle0Position := float32(0)
-	paddleVel := float32(45) //degrees a second
-	clamp := func(min, x, max float32) float32 {
-		if x < min {
-			return min
-		} else if x > max {
-			return max
-		}
-		return x
+	paddles := []paddlePhys{
+		paddlePhys{}, paddlePhys{},
 	}
 
 	frametimeGoal := map[byte]float64 {
@@ -95,14 +115,25 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 
 				// TODO: switch between input methods (arg switch, plus
 				//  about 20 MD5s for the games that use paddles)
-				if newInput.JoyP0.Left {
-					paddle0Position -= paddleVel*inputDt
-				} else if newInput.JoyP0.Right {
-					paddle0Position += paddleVel*inputDt
+				if window.CodeIsDown(key.CodeA) {
+					paddles[0].left(inputDt)
+				} else if window.CodeIsDown(key.CodeD) {
+					paddles[0].right(inputDt)
+				} else {
+					paddles[0].noMove(inputDt)
 				}
-				paddle0Position = clamp(-135, paddle0Position, 135)
-				//newInput.Paddle0.Button = newInput.JoyP0.Button
-				//newInput.Paddle0.Position = int16(paddle0Position)
+				newInput.Paddle0.Button = window.CodeIsDown(key.CodeJ)
+				newInput.Paddle0.Position = int16(paddles[0].pos)
+
+				if window.CodeIsDown(key.CodeLeftArrow) {
+					paddles[1].left(inputDt)
+				} else if window.CodeIsDown(key.CodeRightArrow) {
+					paddles[1].right(inputDt)
+				} else {
+					paddles[1].noMove(inputDt)
+				}
+				newInput.Paddle1.Button = window.CodeIsDown(key.CodeSpacebar)
+				newInput.Paddle1.Position = int16(paddles[1].pos)
 
 				newInput.JoyP1.Up = window.CodeIsDown(key.CodeUpArrow)
 				newInput.JoyP1.Down = window.CodeIsDown(key.CodeDownArrow)
@@ -177,7 +208,7 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 				//fmt.Println("GC!")
 			}
 			frameCount++
-			if frameCount & 0x3f == 0 {
+			if frameCount & 0x1ff == 0 {
 				//fmt.Printf("maxRTime %.4f, maxFTime %.4f\n", maxRDiff.Seconds(), maxFDiff)
 				maxRDiff = 0
 				maxFDiff = 0

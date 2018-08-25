@@ -177,6 +177,10 @@ func (emu *emuState) write(addr uint16, val byte) {
 			emu.Input03TiedToLow = val&0x80 != 0
 			if wasTied && !emu.Input03TiedToLow {
 				emu.InputTimingPots = true
+				if !emu.InputTimingPotsEverTouched {
+					fmt.Println("Found Paddle code, turning off joysticks!")
+					emu.InputTimingPotsEverTouched = true
+				}
 				emu.InputTimingPotsStartCycles = emu.Cycles
 			}
 			if emu.Input03TiedToLow {
@@ -184,6 +188,7 @@ func (emu *emuState) write(addr uint16, val byte) {
 				emu.Paddle1InputCharged = false
 				emu.Paddle2InputCharged = false
 				emu.Paddle3InputCharged = false
+				emu.InputTimingPots = false
 			}
 
 			emu.TIA.InVBlank = val&0x02 != 0
