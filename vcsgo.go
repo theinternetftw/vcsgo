@@ -454,15 +454,18 @@ func newState(cart []byte) *emuState {
 // a few frames and returns whether it thinks its PAL or not
 func discoverTVFormat(emu *emuState) byte {
 
-	const numTestFrames = 30
+	// I'm not happy about it, but I've found demos that
+	// sit there for over a second before spitting out
+	// valid PAL frames...
+	const numTestFrames = 120
 
 	startTime := time.Now()
 
 	frames := 0
 	nullInput := Input{}
 	emu.DebugContinue = true
-	for frames < numTestFrames {
-		if time.Now().Sub(startTime) > 1*time.Second {
+	for frames < numTestFrames && !emu.TIA.FormatSet {
+		if time.Now().Sub(startTime) > numTestFrames/60*time.Second {
 			break
 		}
 		emu.UpdateInput(nullInput)
