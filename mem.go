@@ -29,27 +29,35 @@ func (emu *emuState) read(addr uint16) byte {
 		maskedAddr := addr & 0x0f
 		switch maskedAddr {
 		case 0x00:
-			val = boolBit(7, emu.TIA.Collisions.M0P1)
+			val = byte(addr) &^ 0xc0
+			val |= boolBit(7, emu.TIA.Collisions.M0P1)
 			val |= boolBit(6, emu.TIA.Collisions.M0P0)
 		case 0x01:
-			val = boolBit(7, emu.TIA.Collisions.M1P0)
+			val = byte(addr) &^ 0xc0
+			val |= boolBit(7, emu.TIA.Collisions.M1P0)
 			val |= boolBit(6, emu.TIA.Collisions.M1P1)
 		case 0x02:
-			val = boolBit(7, emu.TIA.Collisions.P0PF)
+			val = byte(addr) &^ 0xc0
+			val |= boolBit(7, emu.TIA.Collisions.P0PF)
 			val |= boolBit(6, emu.TIA.Collisions.P0BL)
 		case 0x03:
-			val = boolBit(7, emu.TIA.Collisions.P1PF)
+			val = byte(addr) &^ 0xc0
+			val |= boolBit(7, emu.TIA.Collisions.P1PF)
 			val |= boolBit(6, emu.TIA.Collisions.P1BL)
 		case 0x04:
-			val = boolBit(7, emu.TIA.Collisions.M0PF)
+			val = byte(addr) &^ 0xc0
+			val |= boolBit(7, emu.TIA.Collisions.M0PF)
 			val |= boolBit(6, emu.TIA.Collisions.M0BL)
 		case 0x05:
-			val = boolBit(7, emu.TIA.Collisions.M1PF)
+			val = byte(addr) &^ 0xc0
+			val |= boolBit(7, emu.TIA.Collisions.M1PF)
 			val |= boolBit(6, emu.TIA.Collisions.M1BL)
 		case 0x06:
-			val = boolBit(7, emu.TIA.Collisions.BLPF)
+			val = byte(addr) &^ 0x80
+			val |= boolBit(7, emu.TIA.Collisions.BLPF)
 		case 0x07:
-			val = boolBit(7, emu.TIA.Collisions.P0P1)
+			val = byte(addr) &^ 0xc0
+			val |= boolBit(7, emu.TIA.Collisions.P0P1)
 			val |= boolBit(6, emu.TIA.Collisions.M0M1)
 
 		case 0x08:
