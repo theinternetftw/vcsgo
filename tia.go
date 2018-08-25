@@ -76,14 +76,24 @@ type sprite struct {
 	LatchedShow bool
 }
 
+func bitsToStr(val byte) string {
+	return fmt.Sprintf("%v%v%v%v%v%v%v%v",
+		val>>7&1, val>>6&1, val>>5&1, val>>4&1,
+		val>>3&1, val>>2&1, val>>1&1, val>>0&1)
+}
+
 func (tia *tia) loadShapeP0(val byte) {
 	tia.P0.Shape = val
 	tia.P1.LatchedShape = tia.P1.Shape
+	//fmt.Printf("P0Load!: P0LatchedShape:%v P0Shape:%v ", bitsToStr(tia.P0.LatchedShape), bitsToStr(tia.P0.Shape))
+	//fmt.Printf("P1LatchedShape:%v P1Shape:%v\n", bitsToStr(tia.P1.LatchedShape), bitsToStr(tia.P1.Shape))
 }
 func (tia *tia) loadShapeP1(val byte) {
 	tia.P1.Shape = val
 	tia.P0.LatchedShape = tia.P0.Shape
 	tia.BL.LatchedShow = tia.BL.Show
+	//fmt.Printf("P1Load!: P0LatchedShape:%v P0Shape:%v ", bitsToStr(tia.P0.LatchedShape), bitsToStr(tia.P0.Shape))
+	//fmt.Printf("P1LatchedShape:%v P1Shape:%v\n", bitsToStr(tia.P1.LatchedShape), bitsToStr(tia.P1.Shape))
 }
 func (tia *tia) loadEnablBL(val bool) {
 	tia.BL.Show = val
