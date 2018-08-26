@@ -208,12 +208,20 @@ var playerRepeatModeTable = [8][9]byte{
 
 func (tia *tia) getPlayerBit(player *sprite, delay bool) bool {
 
-	row := playerRepeatModeTable[player.RepeatMode]
 	pX := tia.ScreenX - int(player.X)
 	if pX < 0 || pX >= 9*8 {
-		return false
+		// NOTE: wrapping may not work this way? Might just be
+		// the single copy of a player that's crossing the 160
+		// border, not all copies...
+		pXWrap := tia.ScreenX - (int(player.X) - 160)
+		if pXWrap >= 0 && pXWrap < 9*8 {
+			pX = pXWrap
+		} else {
+			return false
+		}
 	}
 
+	row := playerRepeatModeTable[player.RepeatMode]
 	col := pX >> 3
 	if row[col] == 0 {
 		return false
