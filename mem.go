@@ -175,7 +175,7 @@ func (emu *emuState) read(addr uint16) byte {
 				!emu.Input.ResetButton,
 			)
 		case 0x3: // 0x283
-			val = emu.DDRModeMaskPortA
+			val = emu.DDRModeMaskPortB
 		case 0x4, 0x06: // 0x284, 0x286
 			val = emu.Timer.readINTIM()
 		case 0x5, 0x07: // 0x285, 0x287
