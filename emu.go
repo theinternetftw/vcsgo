@@ -14,12 +14,15 @@ type Emulator interface {
 
 	UpdateInput(input Input)
 
-	GetTVFormat() byte
+	GetTVFormat() TVFormat
 }
+
+// TVFormat is for PAL/NTSC determination
+type TVFormat byte
 
 const (
 	// FormatNTSC represents NTSC 60fps games
-	FormatNTSC = iota
+	FormatNTSC TVFormat = iota
 	// FormatPAL represents PAL 50fps games
 	FormatPAL
 )
@@ -96,6 +99,6 @@ func (emu *emuState) Step() {
 	emu.step()
 }
 
-func (emu *emuState) GetTVFormat() byte {
+func (emu *emuState) GetTVFormat() TVFormat {
 	return emu.TIA.TVFormat
 }

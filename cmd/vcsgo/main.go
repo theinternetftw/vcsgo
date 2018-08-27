@@ -87,7 +87,7 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 		paddlePhys{}, paddlePhys{},
 	}
 
-	frametimeGoal := map[byte]float64 {
+	frametimeGoal := map[vcsgo.TVFormat]float64 {
 		vcsgo.FormatNTSC: 1.0/60.0,
 		vcsgo.FormatPAL: 1.0/50.0,
 	}[emu.GetTVFormat()]
@@ -224,7 +224,7 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 				//fmt.Println("GC!")
 			}
 			frameCount++
-			if frameCount & 0x1ff == 0 {
+			if frameCount & 0xff == 0 {
 				fmt.Printf("maxRTime %.4f, maxFTime %.4f\n", maxRDiff.Seconds(), maxFDiff)
 				maxRDiff = 0
 				maxFDiff = 0

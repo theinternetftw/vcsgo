@@ -415,6 +415,7 @@ func initEmuState(emu *emuState, cart []byte) {
 		TIA: tia{
 			ScreenX:  -68,
 			InHBlank: true,
+			Palette:  ntscPalette,
 			M0:       sprite{Size: 1},
 			M1:       sprite{Size: 1},
 		},
@@ -440,11 +441,11 @@ func newState(cart []byte) *emuState {
 	initEmuState(&emu, cart)
 	fmt.Println("ROM Size:", len(emu.Mem.rom))
 	fmt.Printf("Mapper: 0x%02x\n", emu.Mem.mapper.getMapperNum())
+
 	tvFormat := discoverTVFormat(&emu)
 	// start fresh with correct format
 	initEmuState(&emu, cart)
-	emu.TIA.TVFormat = tvFormat
-	emu.TIA.FormatSet = true
+	emu.TIA.setTVFormat(tvFormat)
 	fmt.Println()
 
 	return &emu
@@ -452,20 +453,15 @@ func newState(cart []byte) *emuState {
 
 // discoverTVFormat runs a headless version of emulation for
 // a few frames and returns whether it thinks its PAL or not
-func discoverTVFormat(emu *emuState) byte {
-
-	// I'm not happy about it, but I've found demos that
-	// sit there for over a second before spitting out
-	// valid PAL frames...
-	const numTestFrames = 120
+func discoverTVFormat(emu *emuState) TVFormat {
 
 	startTime := time.Now()
 
 	frames := 0
 	nullInput := Input{}
 	emu.DebugContinue = true
-	for frames < numTestFrames && !emu.TIA.FormatSet {
-		if time.Now().Sub(startTime) > numTestFrames/60*time.Second {
+	for !emu.TIA.FormatSet {
+		if time.Now().Sub(startTime) > 2*time.Second {
 			break
 		}
 		emu.UpdateInput(nullInput)

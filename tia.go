@@ -5,13 +5,15 @@ import "fmt"
 type tia struct {
 	Screen [320 * 264 * 4]byte
 
-	TVFormat      byte
-	DrewThisFrame bool
-	FormatSet     bool
+	Palette [128][3]byte
+
+	TVFormat  TVFormat
+	FormatSet bool
 
 	FrameCount int
 
-	PALFrameCountStart int
+	PALFrameCountStart  int
+	NTSCFrameCountStart int
 
 	ScreenX int
 	ScreenY int
@@ -276,11 +278,6 @@ func (tia *tia) getMissileBit(missile *sprite) bool {
 	return shapeX <= int(missile.Size)-1
 }
 
-var palettes = [2][128][3]byte{
-	ntscPalette,
-	palPalette,
-}
-
 func (tia *tia) drawRGB(x, y int, r, g, b byte) {
 	pix := y*320*4 + (2*x)*4
 	tia.Screen[pix] = r
@@ -306,8 +303,7 @@ func (tia *tia) drawRGB(x, y int, r, g, b byte) {
 
 func (tia *tia) drawColor(colorLuma byte) {
 	x, y := int(tia.ScreenX), tia.ScreenY
-	pal := palettes[tia.TVFormat] // TODO: pull this out
-	col := pal[colorLuma>>1]
+	col := tia.Palette[colorLuma>>1]
 	tia.drawRGB(x, y, col[0], col[1], col[2])
 }
 
@@ -331,18 +327,45 @@ func abs(x int) int {
 	return x
 }
 
+func (tia *tia) setTVFormat(format TVFormat) {
+	tia.TVFormat = format
+	tia.FormatSet = true
+	if format == FormatPAL {
+		tia.Palette = palPalette
+	} else {
+		tia.Palette = ntscPalette
+	}
+}
+
 func (tia *tia) runCycle() {
 
 	if !tia.WasInVSync && tia.InVSync {
 		tia.WasInVSync = true
 		tia.flipRequested = true
 		tia.FrameCount++
+
+		if !tia.FormatSet {
+			if tia.ScreenY >= 263 {
+				if tia.PALFrameCountStart == 0 {
+					tia.PALFrameCountStart = tia.FrameCount
+				} else if tia.FrameCount-tia.PALFrameCountStart >= 20 {
+					fmt.Println("PAL!")
+					tia.setTVFormat(FormatPAL)
+				}
+			} else {
+				if tia.NTSCFrameCountStart == 0 {
+					tia.NTSCFrameCountStart = tia.FrameCount
+				} else if tia.FrameCount-tia.NTSCFrameCountStart >= 20 {
+					fmt.Println("NTSC!")
+					tia.setTVFormat(FormatNTSC)
+				}
+			}
+		}
 	} else if tia.WasInVSync && !tia.InVSync {
 		tia.WasInVSync = false
 		// NOTE: Found PAL roms that expect less than 45 lines
 		// of upper border, so leaving this as is for now.
 		tia.ScreenY = -37
-		tia.DrewThisFrame = false
 	}
 
 	if !tia.WasInVBlank && tia.InVBlank {
@@ -393,18 +416,6 @@ func (tia *tia) runCycle() {
 		tia.InHBlank = false
 	} else if tia.ScreenX == 8 {
 		tia.HMoveCombEnabled = false
-	}
-
-	if tia.ScreenY == 263 {
-		if !tia.FormatSet && tia.DrewThisFrame {
-			if tia.PALFrameCountStart == 0 {
-				tia.PALFrameCountStart = tia.FrameCount
-			} else if tia.FrameCount-tia.PALFrameCountStart >= 20 {
-				fmt.Println("PAL!")
-				tia.TVFormat = FormatPAL
-				tia.FormatSet = true
-			}
-		}
 	}
 
 	if tia.ScreenX >= 0 && tia.ScreenX < 160 {
@@ -486,7 +497,6 @@ func (tia *tia) runCycle() {
 		}
 
 		if tia.ScreenY >= 0 && tia.ScreenY < 264 {
-			tia.DrewThisFrame = tia.DrewThisFrame || colorLuma != 0
 			tia.drawColor(colorLuma)
 		}
 	}
