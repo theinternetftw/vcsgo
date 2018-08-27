@@ -282,28 +282,25 @@ var palettes = [2][128][3]byte{
 }
 
 func (tia *tia) drawRGB(x, y int, r, g, b byte) {
-	tia.Screen[y*320*4+(2*x)*4] = r
-	tia.Screen[y*320*4+(2*x)*4+1] = g
-	tia.Screen[y*320*4+(2*x)*4+2] = b
-	tia.Screen[y*320*4+(2*x)*4+3] = 0xff
+	pix := y*320*4 + (2*x)*4
+	tia.Screen[pix] = r
+	tia.Screen[pix+1] = g
+	tia.Screen[pix+2] = b
+	tia.Screen[pix+3] = 0xff
 
-	tia.Screen[y*320*4+(2*x+1)*4] = r
-	tia.Screen[y*320*4+(2*x+1)*4+1] = g
-	tia.Screen[y*320*4+(2*x+1)*4+2] = b
-	tia.Screen[y*320*4+(2*x+1)*4+3] = 0xff
+	pix2 := pix + 4
+	tia.Screen[pix2] = r
+	tia.Screen[pix2+1] = g
+	tia.Screen[pix2+2] = b
+	tia.Screen[pix2+3] = 0xff
 
 	// for debug
-	if x+1 < 160 {
-		tia.Screen[y*320*4+(2*x+2)*4] = 0xff
-		tia.Screen[y*320*4+(2*x+2)*4+1] = 0xff
-		tia.Screen[y*320*4+(2*x+2)*4+2] = 0xff
-		tia.Screen[y*320*4+(2*x+2)*4+3] = 0xff
-	}
 	if x+2 < 160 {
-		tia.Screen[y*320*4+(2*x+3)*4] = 0xff
-		tia.Screen[y*320*4+(2*x+3)*4+1] = 0xff
-		tia.Screen[y*320*4+(2*x+3)*4+2] = 0xff
-		tia.Screen[y*320*4+(2*x+3)*4+3] = 0xff
+		pix3 := pix + 8
+		tia.Screen[pix3] = 0xff
+		tia.Screen[pix3+1] = 0xff
+		tia.Screen[pix3+2] = 0xff
+		tia.Screen[pix3+3] = 0xff
 	}
 }
 
