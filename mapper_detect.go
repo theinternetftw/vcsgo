@@ -85,7 +85,7 @@ func findHash(hash string, list []string) bool {
 	}
 	return false
 }
-func loadMapperFromRomHash(rom []byte) mapper {
+func loadMapperFromRomInfo(rom []byte) mapper {
 	hash := fmt.Sprintf("%x", md5.Sum(rom))
 	if findHash(hash, mapperListE0) {
 		return &mapperE0{}
@@ -101,6 +101,12 @@ func loadMapperFromRomHash(rom []byte) mapper {
 	}
 	if findHash(hash, mapperListC0) {
 		return &mapperC0{}
+	}
+	switch len(rom) {
+	case 8*1024 + 256:
+		return &mapper66{}
+	case 12 * 1024:
+		return &mapperFA{}
 	}
 	return &mapperUnknown{}
 }
@@ -128,9 +134,6 @@ func (emu *emuState) guessMapperFromAddr(addr uint16) mapper {
 		if is3F(addr) {
 			return &mapper3F{}
 		}
-
-	case 12 * 1024:
-		return &mapperFA{}
 
 	case 16 * 1024:
 		if addr >= 0x1ff6 && addr <= 0x1ff9 {

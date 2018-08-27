@@ -9,6 +9,7 @@ type mem struct {
 	mapper mapper
 
 	lastWriteAddr uint16 // unfortunately necessary for a mapper hack
+	lastReadAddr  uint16 // unfortunately necessary for a mapper hack
 }
 
 func (emu *emuState) read(addr uint16) byte {
@@ -190,6 +191,7 @@ func (emu *emuState) read(addr uint16) byte {
 	if showMemReads {
 		fmt.Printf("read(0x%04x) = 0x%02x\n", origAddr, val)
 	}
+	emu.Mem.lastReadAddr = addr
 	return val
 }
 

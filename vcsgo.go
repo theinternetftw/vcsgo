@@ -150,11 +150,11 @@ func (emu *emuState) runCycles(cycles uint) {
 		emu.Cycles++
 
 		emu.Timer.runCycle()
+		emu.Mem.mapper.runCycle(emu)
 
 		for j := 0; j < 3; j++ {
 			emu.TIA.runCycle()
 			emu.APU.runCycle()
-			emu.Mem.mapper.runCycle()
 		}
 
 		if emu.InputTimingPots {
@@ -417,7 +417,7 @@ func (emu *emuState) ReadSoundBuffer(toFill []byte) []byte {
 func initEmuState(emu *emuState, cart []byte) {
 	*emu = emuState{
 		Mem: mem{
-			mapper: loadMapperFromRomHash(cart),
+			mapper: loadMapperFromRomInfo(cart),
 			rom:    cart,
 		},
 		Timer: timer{
@@ -450,6 +450,8 @@ func initEmuState(emu *emuState, cart []byte) {
 	// NOTE: random fill the RAM, but but still keep it
 	// deterministic every start for the moment...
 	rand.Read(emu.Mem.RAM[:])
+
+	emu.Mem.mapper.init(emu)
 }
 
 func newState(cart []byte) *emuState {
