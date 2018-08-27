@@ -69,7 +69,7 @@ func (emu *emuState) read(addr uint16) byte {
 						(emu.RowSelKeypad0&2 > 0 && emu.Input.Keypad0[3]) ||
 						(emu.RowSelKeypad0&4 > 0 && emu.Input.Keypad0[6]) ||
 						(emu.RowSelKeypad0&8 > 0 && emu.Input.Keypad0[9])))
-			} else if !emu.InputPotsBeingUsed && emu.InputTimingPots {
+			} else if emu.InputTimingPots {
 				emu.PaddleChecksThisFrame++
 			}
 		case 0x09:
@@ -80,7 +80,7 @@ func (emu *emuState) read(addr uint16) byte {
 						(emu.RowSelKeypad0&2 > 0 && emu.Input.Keypad0[4]) ||
 						(emu.RowSelKeypad0&4 > 0 && emu.Input.Keypad0[7]) ||
 						(emu.RowSelKeypad0&8 > 0 && emu.Input.Keypad0[10])))
-			} else if !emu.InputPotsBeingUsed && emu.InputTimingPots {
+			} else if emu.InputTimingPots {
 				emu.PaddleChecksThisFrame++
 			}
 		case 0x0a:
@@ -91,7 +91,7 @@ func (emu *emuState) read(addr uint16) byte {
 						(emu.RowSelKeypad1&2 > 0 && emu.Input.Keypad1[3]) ||
 						(emu.RowSelKeypad1&4 > 0 && emu.Input.Keypad1[6]) ||
 						(emu.RowSelKeypad1&8 > 0 && emu.Input.Keypad1[9])))
-			} else if !emu.InputPotsBeingUsed && emu.InputTimingPots {
+			} else if emu.InputTimingPots {
 				emu.PaddleChecksThisFrame++
 			}
 		case 0x0b:
@@ -102,7 +102,7 @@ func (emu *emuState) read(addr uint16) byte {
 						(emu.RowSelKeypad1&2 > 0 && emu.Input.Keypad1[4]) ||
 						(emu.RowSelKeypad1&4 > 0 && emu.Input.Keypad1[7]) ||
 						(emu.RowSelKeypad1&8 > 0 && emu.Input.Keypad1[10])))
-			} else if !emu.InputPotsBeingUsed && emu.InputTimingPots {
+			} else if emu.InputTimingPots {
 				emu.PaddleChecksThisFrame++
 			}
 
@@ -119,6 +119,7 @@ func (emu *emuState) read(addr uint16) byte {
 						(emu.RowSelKeypad0&4 > 0 && emu.Input.Keypad0[8]) ||
 						(emu.RowSelKeypad0&8 > 0 && emu.Input.Keypad0[11])))
 			}
+
 		case 0x0d:
 			if emu.Input45LatchMode {
 				val = boolBit(7, emu.Input5LatchVal)

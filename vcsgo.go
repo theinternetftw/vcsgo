@@ -48,7 +48,9 @@ type emuState struct {
 	InputTimingPots            bool
 	InputTimingPotsStartCycles uint64
 
+	PaddleChecksLastFrame int
 	PaddleChecksThisFrame int
+	PaddleCodeFrames      int
 	LastPaddleFrameReset  int
 	InputPotsBeingUsed    bool
 
@@ -334,8 +336,9 @@ func (emu *emuState) stepNoDbg() {
 		return
 	}
 
-	if emu.LastPaddleFrameReset != emu.TIA.ScreenY {
-		emu.LastPaddleFrameReset = emu.TIA.ScreenY
+	if emu.LastPaddleFrameReset != emu.TIA.FrameCount {
+		emu.LastPaddleFrameReset = emu.TIA.FrameCount
+		emu.PaddleChecksLastFrame = emu.PaddleChecksThisFrame
 		emu.PaddleChecksThisFrame = 0
 	}
 
@@ -375,9 +378,12 @@ func (emu *emuState) updateInput(input Input) {
 		}
 	}
 
-	if !emu.InputPotsBeingUsed && emu.PaddleChecksThisFrame > 1 {
-		fmt.Println("Paddle code found: Joysticks disabled")
-		emu.InputPotsBeingUsed = true
+	if !emu.InputPotsBeingUsed && emu.PaddleChecksLastFrame >= 10 {
+		emu.PaddleCodeFrames++
+		if emu.PaddleCodeFrames >= 10 {
+			fmt.Println("Paddle code found: Joysticks disabled", emu.PaddleChecksLastFrame)
+			emu.InputPotsBeingUsed = true
+		}
 	}
 	if emu.InputPotsBeingUsed {
 		input.JoyP0 = Joystick{}
