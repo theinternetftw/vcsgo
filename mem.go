@@ -120,6 +120,7 @@ func (emu *emuState) read(addr uint16) byte {
 						(emu.RowSelKeypad0&4 > 0 && emu.Input.Keypad0[8]) ||
 						(emu.RowSelKeypad0&8 > 0 && emu.Input.Keypad0[11])))
 			}
+			emu.JoystickButtonChecksThisFrame++
 
 		case 0x0d:
 			if emu.Input45LatchMode {
@@ -134,6 +135,7 @@ func (emu *emuState) read(addr uint16) byte {
 						(emu.RowSelKeypad1&4 > 0 && emu.Input.Keypad1[8]) ||
 						(emu.RowSelKeypad1&8 > 0 && emu.Input.Keypad1[11])))
 			}
+			emu.JoystickButtonChecksThisFrame++
 
 			//case 0x0e, 0x0f:
 			// TODO: return garbage? switch to crash for debug purposes?

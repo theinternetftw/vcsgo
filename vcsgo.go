@@ -48,11 +48,13 @@ type emuState struct {
 	InputTimingPots            bool
 	InputTimingPotsStartCycles uint64
 
-	PaddleChecksLastFrame int
-	PaddleChecksThisFrame int
-	PaddleCodeFrames      int
-	LastPaddleFrameReset  int
-	InputPotsBeingUsed    bool
+	JoystickButtonChecksThisFrame int
+	JoystickButtonChecksLastFrame int
+	PaddleChecksThisFrame         int
+	PaddleChecksLastFrame         int
+	PaddleCodeFrames              int
+	LastPaddleFrameReset          int
+	InputPotsBeingUsed            bool
 
 	Paddle0InputCharged bool
 	Paddle1InputCharged bool
@@ -340,6 +342,8 @@ func (emu *emuState) stepNoDbg() {
 		emu.LastPaddleFrameReset = emu.TIA.FrameCount
 		emu.PaddleChecksLastFrame = emu.PaddleChecksThisFrame
 		emu.PaddleChecksThisFrame = 0
+		emu.JoystickButtonChecksLastFrame = emu.JoystickButtonChecksThisFrame
+		emu.JoystickButtonChecksThisFrame = 0
 	}
 
 	emu.CPU.Step()
@@ -378,13 +382,19 @@ func (emu *emuState) updateInput(input Input) {
 		}
 	}
 
-	if !emu.InputPotsBeingUsed && emu.PaddleChecksLastFrame >= 10 {
-		emu.PaddleCodeFrames++
-		if emu.PaddleCodeFrames >= 10 {
-			fmt.Println("Paddle code found: Joysticks disabled", emu.PaddleChecksLastFrame)
-			emu.InputPotsBeingUsed = true
+	if !emu.InputPotsBeingUsed {
+		fewChecksButNoJoy := emu.PaddleChecksLastFrame >= 20 && emu.JoystickButtonChecksLastFrame == 0
+		if fewChecksButNoJoy || emu.PaddleChecksLastFrame >= 60 {
+			emu.PaddleCodeFrames++
+			if emu.PaddleCodeFrames >= 20 {
+				fmt.Println("Paddle code found: Joysticks disabled", emu.PaddleChecksLastFrame)
+				emu.InputPotsBeingUsed = true
+			}
+		} else {
+			emu.PaddleCodeFrames = 0
 		}
 	}
+
 	if emu.InputPotsBeingUsed {
 		input.JoyP0 = Joystick{}
 		input.JoyP1 = Joystick{}
