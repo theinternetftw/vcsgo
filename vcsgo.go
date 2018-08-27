@@ -48,7 +48,9 @@ type emuState struct {
 	InputTimingPots            bool
 	InputTimingPotsStartCycles uint64
 
-	InputTimingPotsEverChecked bool
+	PaddleChecksThisFrame int
+	LastPaddleFrameReset  int
+	InputPotsBeingUsed    bool
 
 	Paddle0InputCharged bool
 	Paddle1InputCharged bool
@@ -328,8 +330,13 @@ func (emu *emuState) step() {
 
 func (emu *emuState) stepNoDbg() {
 	if emu.TIA.WaitForHBlank {
-		emu.runCycles(1) // 1 or 3? does it re-sync the clock?
+		emu.runCycles(1) // 1 cpu or tia cycle? (currently cpu)
 		return
+	}
+
+	if emu.LastPaddleFrameReset != emu.TIA.ScreenY {
+		emu.LastPaddleFrameReset = emu.TIA.ScreenY
+		emu.PaddleChecksThisFrame = 0
 	}
 
 	emu.CPU.Step()
@@ -368,7 +375,11 @@ func (emu *emuState) updateInput(input Input) {
 		}
 	}
 
-	if emu.InputTimingPotsEverChecked {
+	if !emu.InputPotsBeingUsed && emu.PaddleChecksThisFrame > 1 {
+		fmt.Println("Paddle code found: Joysticks disabled")
+		emu.InputPotsBeingUsed = true
+	}
+	if emu.InputPotsBeingUsed {
 		input.JoyP0 = Joystick{}
 		input.JoyP1 = Joystick{}
 	} else {

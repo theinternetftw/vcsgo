@@ -69,9 +69,8 @@ func (emu *emuState) read(addr uint16) byte {
 						(emu.RowSelKeypad0&2 > 0 && emu.Input.Keypad0[3]) ||
 						(emu.RowSelKeypad0&4 > 0 && emu.Input.Keypad0[6]) ||
 						(emu.RowSelKeypad0&8 > 0 && emu.Input.Keypad0[9])))
-			} else if emu.InputTimingPots && !emu.InputTimingPotsEverChecked {
-				fmt.Println("Found Paddle code, turning off joysticks!")
-				emu.InputTimingPotsEverChecked = true
+			} else if !emu.InputPotsBeingUsed && emu.InputTimingPots {
+				emu.PaddleChecksThisFrame++
 			}
 		case 0x09:
 			val = boolBit(7, emu.Paddle1InputCharged)
@@ -81,9 +80,8 @@ func (emu *emuState) read(addr uint16) byte {
 						(emu.RowSelKeypad0&2 > 0 && emu.Input.Keypad0[4]) ||
 						(emu.RowSelKeypad0&4 > 0 && emu.Input.Keypad0[7]) ||
 						(emu.RowSelKeypad0&8 > 0 && emu.Input.Keypad0[10])))
-			} else if emu.InputTimingPots && !emu.InputTimingPotsEverChecked {
-				fmt.Println("Found Paddle code, turning off joysticks!")
-				emu.InputTimingPotsEverChecked = true
+			} else if !emu.InputPotsBeingUsed && emu.InputTimingPots {
+				emu.PaddleChecksThisFrame++
 			}
 		case 0x0a:
 			val = boolBit(7, emu.Paddle2InputCharged)
@@ -93,9 +91,8 @@ func (emu *emuState) read(addr uint16) byte {
 						(emu.RowSelKeypad1&2 > 0 && emu.Input.Keypad1[3]) ||
 						(emu.RowSelKeypad1&4 > 0 && emu.Input.Keypad1[6]) ||
 						(emu.RowSelKeypad1&8 > 0 && emu.Input.Keypad1[9])))
-			} else if emu.InputTimingPots && !emu.InputTimingPotsEverChecked {
-				fmt.Println("Found Paddle code, turning off joysticks!")
-				emu.InputTimingPotsEverChecked = true
+			} else if !emu.InputPotsBeingUsed && emu.InputTimingPots {
+				emu.PaddleChecksThisFrame++
 			}
 		case 0x0b:
 			val = boolBit(7, emu.Paddle3InputCharged)
@@ -105,9 +102,8 @@ func (emu *emuState) read(addr uint16) byte {
 						(emu.RowSelKeypad1&2 > 0 && emu.Input.Keypad1[4]) ||
 						(emu.RowSelKeypad1&4 > 0 && emu.Input.Keypad1[7]) ||
 						(emu.RowSelKeypad1&8 > 0 && emu.Input.Keypad1[10])))
-			} else if emu.InputTimingPots && !emu.InputTimingPotsEverChecked {
-				fmt.Println("Found Paddle code, turning off joysticks!")
-				emu.InputTimingPotsEverChecked = true
+			} else if !emu.InputPotsBeingUsed && emu.InputTimingPots {
+				emu.PaddleChecksThisFrame++
 			}
 
 		case 0x0c:
