@@ -65,7 +65,7 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 
 	// FIXME: settings are for debug right now
 	lastFlipTime := time.Now()
-	lastInputUpdateTime := time.Now()
+	lastInputPollTime := time.Now()
 
 	snapshotPrefix := filename + ".snapshot"
 
@@ -94,12 +94,17 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 
 	snapshotMode := 'x'
 
+	newInput := vcsgo.Input{}
+
 	for {
-		newInput := vcsgo.Input {}
 		numDown := 'x'
 
-		inputDt := float32(time.Now().Sub(lastInputUpdateTime).Seconds())
-		if inputDt > 0.001 {
+		inputDiff := time.Now().Sub(lastInputPollTime)
+		if inputDiff > 8*time.Millisecond {
+
+			inputDt := float32(inputDiff.Seconds())
+			newInput = vcsgo.Input{}
+
 			window.Mutex.Lock()
 			{
 				window.CopyKeyCharArray(newInput.Keys[:])
@@ -159,21 +164,21 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 			}
 			window.Mutex.Unlock()
 
-			emu.UpdateInput(newInput)
+			lastInputPollTime = time.Now()
+		}
 
-			lastInputUpdateTime = time.Now()
+		emu.UpdateInput(newInput)
 
-			for r := '0'; r <= '9'; r++ {
-				if newInput.Keys[r] {
-					numDown = r
-					break
-				}
+		for r := '0'; r <= '9'; r++ {
+			if newInput.Keys[r] {
+				numDown = r
+				break
 			}
-			if newInput.Keys['m'] {
-				snapshotMode = 'm'
-			} else if newInput.Keys['l'] {
-				snapshotMode = 'l'
-			}
+		}
+		if newInput.Keys['m'] {
+			snapshotMode = 'm'
+		} else if newInput.Keys['l'] {
+			snapshotMode = 'l'
 		}
 
 		if numDown > '0' && numDown <= '9' {
