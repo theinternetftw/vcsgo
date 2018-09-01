@@ -12,7 +12,7 @@ type Emulator interface {
 
 	ReadSoundBuffer([]byte) []byte
 
-	UpdateInput(input Input)
+	SetInput(input Input)
 
 	GetTVFormat() TVFormat
 }
@@ -67,8 +67,8 @@ type Paddle struct {
 	Position int16
 }
 
-func (emu *emuState) UpdateInput(input Input) {
-	emu.updateInput(input)
+func (emu *emuState) SetInput(input Input) {
+	emu.setInput(input)
 }
 
 // NewEmulator creates an emulation session

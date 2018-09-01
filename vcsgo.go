@@ -148,7 +148,8 @@ func (emu *emuState) framebuffer() []byte {
 var lastCheck time.Time
 
 func (emu *emuState) runCycles(cycles uint) {
-	for i := uint(0); i < cycles; i++ {
+
+	for i := uint(0); emu.TIA.WaitForHBlank || i < cycles; i++ {
 		emu.Cycles++
 
 		emu.Timer.runCycle()
@@ -181,6 +182,36 @@ func (emu *emuState) runCycles(cycles uint) {
 					*regs[i] = true
 				}
 			}
+		}
+	}
+
+	if emu.LastPaddleFrameReset != emu.TIA.FrameCount {
+		emu.LastPaddleFrameReset = emu.TIA.FrameCount
+		emu.PaddleChecksLastFrame = emu.PaddleChecksThisFrame
+		emu.PaddleChecksThisFrame = 0
+		emu.JoystickButtonChecksLastFrame = emu.JoystickButtonChecksThisFrame
+		emu.JoystickButtonChecksThisFrame = 0
+	}
+
+	if emu.Input45LatchMode {
+		if emu.Input4LatchVal {
+			emu.Input4LatchVal = !emu.Input.JoyP0.Button
+		}
+		if emu.Input5LatchVal {
+			emu.Input5LatchVal = !emu.Input.JoyP1.Button
+		}
+	}
+
+	if !emu.InputPotsBeingUsed {
+		fewChecksButNoJoy := emu.PaddleChecksLastFrame >= 20 && emu.JoystickButtonChecksLastFrame == 0
+		if fewChecksButNoJoy || emu.PaddleChecksLastFrame >= 60 {
+			emu.PaddleCodeFrames++
+			if emu.PaddleCodeFrames >= 20 {
+				fmt.Println("Paddle code found: Joysticks disabled", emu.PaddleChecksLastFrame)
+				emu.InputPotsBeingUsed = true
+			}
+		} else {
+			emu.PaddleCodeFrames = 0
 		}
 	}
 }
@@ -333,18 +364,6 @@ func (emu *emuState) step() {
 }
 
 func (emu *emuState) stepNoDbg() {
-	if emu.TIA.WaitForHBlank {
-		emu.runCycles(1) // 1 cpu or tia cycle? (currently cpu)
-		return
-	}
-
-	if emu.LastPaddleFrameReset != emu.TIA.FrameCount {
-		emu.LastPaddleFrameReset = emu.TIA.FrameCount
-		emu.PaddleChecksLastFrame = emu.PaddleChecksThisFrame
-		emu.PaddleChecksThisFrame = 0
-		emu.JoystickButtonChecksLastFrame = emu.JoystickButtonChecksThisFrame
-		emu.JoystickButtonChecksThisFrame = 0
-	}
 
 	emu.CPU.Step()
 }
@@ -361,7 +380,7 @@ func (emu *emuState) debugStatusLine() string {
 	)
 }
 
-func (emu *emuState) updateInput(input Input) {
+func (emu *emuState) setInput(input Input) {
 
 	// just for debug
 	for i := 0; i < 128; i++ {
@@ -371,28 +390,6 @@ func (emu *emuState) updateInput(input Input) {
 			emu.DebugKeyVal = byte(i)
 		}
 		emu.LastKeyState[i] = down
-	}
-
-	if emu.Input45LatchMode {
-		if emu.Input4LatchVal {
-			emu.Input4LatchVal = !emu.Input.JoyP0.Button
-		}
-		if emu.Input5LatchVal {
-			emu.Input5LatchVal = !emu.Input.JoyP1.Button
-		}
-	}
-
-	if !emu.InputPotsBeingUsed {
-		fewChecksButNoJoy := emu.PaddleChecksLastFrame >= 20 && emu.JoystickButtonChecksLastFrame == 0
-		if fewChecksButNoJoy || emu.PaddleChecksLastFrame >= 60 {
-			emu.PaddleCodeFrames++
-			if emu.PaddleCodeFrames >= 20 {
-				fmt.Println("Paddle code found: Joysticks disabled", emu.PaddleChecksLastFrame)
-				emu.InputPotsBeingUsed = true
-			}
-		} else {
-			emu.PaddleCodeFrames = 0
-		}
 	}
 
 	if emu.InputPotsBeingUsed {
@@ -493,7 +490,7 @@ func discoverTVFormat(emu *emuState) TVFormat {
 		if time.Now().Sub(startTime) > 2*time.Second {
 			break
 		}
-		emu.UpdateInput(nullInput)
+		emu.SetInput(nullInput)
 		emu.Step()
 		if emu.FlipRequested() {
 			frames++

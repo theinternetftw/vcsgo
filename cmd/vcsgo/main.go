@@ -165,9 +165,9 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 			window.Mutex.Unlock()
 
 			lastInputPollTime = time.Now()
-		}
 
-		emu.UpdateInput(newInput)
+			emu.SetInput(newInput)
+		}
 
 		for r := '0'; r <= '9'; r++ {
 			if newInput.Keys[r] {
