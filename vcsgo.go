@@ -145,8 +145,6 @@ func (emu *emuState) framebuffer() []byte {
 	return emu.TIA.Screen[:]
 }
 
-var lastCheck time.Time
-
 func (emu *emuState) runCycles(cycles uint) {
 
 	for i := uint(0); emu.TIA.WaitForHBlank || i < cycles; i++ {
@@ -172,12 +170,6 @@ func (emu *emuState) runCycles(cycles uint) {
 			}
 			for i, paddle := range paddles {
 				scanLimit := paddlePosToScanlines(paddle.Position)
-				if time.Now().Sub(lastCheck).Seconds() > 0.2 {
-					if i == 0 {
-						//fmt.Println("diff:", diff, "pos:", paddle.Position, "limit:", scanLimit, "scanlines:", scanlines, "screenY:", emu.TIA.ScreenY)
-					}
-					lastCheck = time.Now()
-				}
 				if scanlines >= scanLimit {
 					*regs[i] = true
 				}
