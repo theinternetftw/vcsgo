@@ -97,10 +97,13 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 	newInput := vcsgo.Input{}
 
 	for {
-		numDown := 'x'
 
-		inputDiff := time.Now().Sub(lastInputPollTime)
+		now := time.Now()
+
+		inputDiff := now.Sub(lastInputPollTime)
 		if inputDiff > 8*time.Millisecond {
+
+			numDown := 'x'
 
 			inputDt := float32(inputDiff.Seconds())
 			newInput = vcsgo.Input{}
@@ -167,46 +170,46 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 			lastInputPollTime = time.Now()
 
 			emu.SetInput(newInput)
-		}
 
-		for r := '0'; r <= '9'; r++ {
-			if newInput.Keys[r] {
-				numDown = r
-				break
+			for r := '0'; r <= '9'; r++ {
+				if newInput.Keys[r] {
+					numDown = r
+					break
+				}
 			}
-		}
-		if newInput.Keys['m'] {
-			snapshotMode = 'm'
-		} else if newInput.Keys['l'] {
-			snapshotMode = 'l'
-		}
+			if newInput.Keys['m'] {
+				snapshotMode = 'm'
+			} else if newInput.Keys['l'] {
+				snapshotMode = 'l'
+			}
 
-		if numDown > '0' && numDown <= '9' {
-			snapFilename := snapshotPrefix+string(numDown)
-			if snapshotMode == 'm' {
-				snapshotMode = 'x'
-				numDown = 'x'
-				snapshot := emu.MakeSnapshot()
-				fmt.Println("writing snap!")
-				err := ioutil.WriteFile(snapFilename, snapshot, os.FileMode(0644))
-				if err != nil {
-					fmt.Println("failed to write snapshot:", err)
+			if numDown > '0' && numDown <= '9' {
+				snapFilename := snapshotPrefix+string(numDown)
+				if snapshotMode == 'm' {
+					snapshotMode = 'x'
+					numDown = 'x'
+					snapshot := emu.MakeSnapshot()
+					fmt.Println("writing snap!")
+					err := ioutil.WriteFile(snapFilename, snapshot, os.FileMode(0644))
+					if err != nil {
+						fmt.Println("failed to write snapshot:", err)
+					}
+				} else if snapshotMode == 'l' {
+					snapshotMode = 'x'
+					numDown = 'x'
+					snapBytes, err := ioutil.ReadFile(snapFilename)
+					fmt.Println("loading snap!")
+					if err != nil {
+						fmt.Println("failed to load snapshot:", err)
+						continue
+					}
+					newEmu, err := emu.LoadSnapshot(snapBytes)
+					if err != nil {
+						fmt.Println("failed to load snapshot:", err)
+						continue
+					}
+					emu = newEmu
 				}
-			} else if snapshotMode == 'l' {
-				snapshotMode = 'x'
-				numDown = 'x'
-				snapBytes, err := ioutil.ReadFile(snapFilename)
-				fmt.Println("loading snap!")
-				if err != nil {
-					fmt.Println("failed to load snapshot:", err)
-					continue
-				}
-				newEmu, err := emu.LoadSnapshot(snapBytes)
-				if err != nil {
-					fmt.Println("failed to load snapshot:", err)
-					continue
-				}
-				emu = newEmu
 			}
 		}
 
