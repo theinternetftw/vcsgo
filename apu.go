@@ -11,6 +11,8 @@ type apu struct {
 	SampleSum      int
 	SampleSumCount int
 
+	ClocksPerSample int
+
 	// everything else marshalled
 	Channel0 sound
 	Channel1 sound
@@ -18,9 +20,11 @@ type apu struct {
 
 func (apu *apu) init(emu *emuState) {
 	if emu.TIA.TVFormat == FormatPAL {
-		clocksPerSample = palClocksPerSecond / samplesPerSecond
+		f := palClocksPerSecond / samplesPerSecond
+		apu.ClocksPerSample = int(f)
 	} else {
-		clocksPerSample = ntscClocksPerSecond / samplesPerSecond
+		f := ntscClocksPerSecond / samplesPerSecond
+		apu.ClocksPerSample = int(f)
 	}
 	apu.Channel0.init()
 	apu.Channel1.init()
@@ -142,7 +146,7 @@ func (s *sound) run9BitPoly() int {
 }
 
 const (
-	amountGenerateAhead = 32 * 4
+	amountGenerateAhead = 64 * 4 // must be power of 2
 	samplesPerSecond    = 44100
 	timePerSample       = 1.0 / samplesPerSecond
 )
@@ -151,8 +155,6 @@ const apuCircleBufSize = amountGenerateAhead
 
 const ntscClocksPerSecond = 3 * 1.193182 * 1000 * 1000
 const palClocksPerSecond = 3 * 1.182298 * 1000 * 1000
-
-var clocksPerSample float32
 
 // NOTE: size must be power of 2
 type apuCircleBuf struct {
@@ -203,7 +205,7 @@ func (apu *apu) runCycle() {
 
 		apu.SampleSum += c0 + c1
 		apu.SampleSumCount++
-		if apu.SampleSumCount >= int(clocksPerSample) {
+		if apu.SampleSumCount >= apu.ClocksPerSample {
 
 			sum := float32(apu.SampleSum) / 30.0 // 2 channels, 15 vol levels
 
