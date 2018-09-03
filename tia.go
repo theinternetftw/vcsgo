@@ -54,6 +54,8 @@ type tia struct {
 	InVSync     bool
 	WasInVSync  bool
 	WasInVBlank bool
+
+	ShowDebugPuck bool
 }
 
 type sprite struct {
@@ -279,32 +281,30 @@ func (tia *tia) getMissileBit(missile *sprite) bool {
 }
 
 func (tia *tia) drawRGB(x, y int, r, g, b byte) {
-	pix := y*320*4 + (2*x)*4
+
+	pix := (y*320 + 2*x) * 4
+
 	tia.Screen[pix] = r
 	tia.Screen[pix+1] = g
 	tia.Screen[pix+2] = b
-	tia.Screen[pix+3] = 0xff
 
 	pix2 := pix + 4
+
 	tia.Screen[pix2] = r
 	tia.Screen[pix2+1] = g
 	tia.Screen[pix2+2] = b
-	tia.Screen[pix2+3] = 0xff
 
-	// for debug
-	if x+2 < 160 {
+	if tia.ShowDebugPuck && x+2 < 160 {
 		pix3 := pix + 8
 		tia.Screen[pix3] = 0xff
 		tia.Screen[pix3+1] = 0xff
 		tia.Screen[pix3+2] = 0xff
-		tia.Screen[pix3+3] = 0xff
 	}
 }
 
 func (tia *tia) drawColor(colorLuma byte) {
-	x, y := int(tia.ScreenX), tia.ScreenY
 	col := tia.Palette[colorLuma>>1]
-	tia.drawRGB(x, y, col[0], col[1], col[2])
+	tia.drawRGB(tia.ScreenX, tia.ScreenY, col[0], col[1], col[2])
 }
 
 func (s *sprite) lockMissileToPlayer(player *sprite) {
@@ -334,6 +334,11 @@ func (tia *tia) setTVFormat(format TVFormat) {
 		tia.Palette = palPalette
 	} else {
 		tia.Palette = ntscPalette
+	}
+}
+func (tia *tia) init(emu *emuState) {
+	for i := 0; i < len(tia.Screen); i += 4 {
+		tia.Screen[i] = 0xff
 	}
 }
 

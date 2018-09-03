@@ -273,6 +273,7 @@ func (emu *emuState) step() {
 	if emu.DebugKeyVal == '`' {
 		emu.DebugKeyPressed = false
 		emu.DebugContinue = false
+		emu.TIA.ShowDebugPuck = true
 		return
 	}
 
@@ -316,6 +317,7 @@ func (emu *emuState) step() {
 		switch cmd.cType {
 		case cmdContinue:
 			emu.DebugContinue = true
+			emu.TIA.ShowDebugPuck = false
 		case cmdDisplay:
 			fmt.Println(emu.debugStatusLine())
 		case cmdStep:
@@ -429,11 +431,12 @@ func initEmuState(emu *emuState, cart []byte) {
 			Val: byte(rand.Uint32()),
 		},
 		TIA: tia{
-			ScreenX:  -68,
-			InHBlank: true,
-			Palette:  ntscPalette,
-			M0:       sprite{Size: 1},
-			M1:       sprite{Size: 1},
+			ScreenX:       -68,
+			InHBlank:      true,
+			Palette:       ntscPalette,
+			M0:            sprite{Size: 1},
+			M1:            sprite{Size: 1},
+			ShowDebugPuck: true,
 		},
 	}
 
@@ -445,6 +448,7 @@ func initEmuState(emu *emuState, cart []byte) {
 		Err:       func(e error) { emuErr(e) },
 	}
 	emu.APU.init(emu)
+	emu.TIA.init(emu)
 
 	// NOTE: random fill the RAM, but but still keep it
 	// deterministic every start for the moment...
