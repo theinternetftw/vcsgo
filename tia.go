@@ -199,7 +199,7 @@ func (tia *tia) getBallBit() bool {
 	return x >= blX && x < blX+blSz
 }
 
-var playerRepeatModeTable = [8][9]byte{
+var playerModeTable = [8][9]byte{
 	{1, 0, 0, 0, 0, 0, 0, 0, 0},
 	{1, 0, 1, 0, 0, 0, 0, 0, 0},
 	{1, 0, 0, 0, 1, 0, 0, 0, 0},
@@ -211,6 +211,15 @@ var playerRepeatModeTable = [8][9]byte{
 }
 
 func (tia *tia) getPlayerBit(player *sprite, delay bool) bool {
+
+	shape := player.Shape
+	if delay {
+		shape = player.LatchedShape
+	}
+
+	if shape == 0 {
+		return false
+	}
 
 	pX := tia.ScreenX - int(player.X)
 	if pX < 0 || pX >= 9*8 {
@@ -225,9 +234,8 @@ func (tia *tia) getPlayerBit(player *sprite, delay bool) bool {
 		}
 	}
 
-	row := playerRepeatModeTable[player.RepeatMode]
 	col := pX >> 3
-	if row[col] == 0 {
+	if playerModeTable[player.RepeatMode][col] == 0 {
 		return false
 	}
 
@@ -239,19 +247,14 @@ func (tia *tia) getPlayerBit(player *sprite, delay bool) bool {
 	}
 	shapeX &= 7
 
-	shape := player.Shape
-	if delay {
-		shape = player.LatchedShape
-	}
-
 	if player.Reflect {
-		return (shape>>shapeX)&1 == 1
+		return (shape>>shapeX)&1 > 0
 	}
-	return (shape<<shapeX)&0x80 == 0x80
+	return shape<<shapeX >= 0x80
 }
 
 // same as player, save no double or quad mode
-var missileRepeatModeTable = [8][9]byte{
+var missileModeTable = [8][9]byte{
 	{1, 0, 0, 0, 0, 0, 0, 0, 0},
 	{1, 0, 1, 0, 0, 0, 0, 0, 0},
 	{1, 0, 0, 0, 1, 0, 0, 0, 0},
@@ -264,14 +267,13 @@ var missileRepeatModeTable = [8][9]byte{
 
 func (tia *tia) getMissileBit(missile *sprite) bool {
 
-	row := missileRepeatModeTable[missile.RepeatMode]
 	mX := tia.ScreenX - int(missile.X)
 	if mX < 0 || mX >= 9*8 {
 		return false
 	}
 
 	col := mX >> 3
-	if row[col] == 0 {
+	if missileModeTable[missile.RepeatMode][col] == 0 {
 		return false
 	}
 
@@ -320,13 +322,6 @@ func (s *sprite) lockMissileToPlayer(player *sprite) {
 	s.X %= 160
 }
 
-func abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
-
 func (tia *tia) setTVFormat(format TVFormat) {
 	tia.TVFormat = format
 	tia.FormatSet = true
@@ -342,30 +337,132 @@ func (tia *tia) init(emu *emuState) {
 	}
 }
 
+func (tia *tia) startVSync() {
+	tia.WasInVSync = true
+	tia.flipRequested = true
+	tia.FrameCount++
+
+	if !tia.FormatSet {
+		if tia.ScreenY >= 263 {
+			if tia.PALFrameCountStart == 0 {
+				tia.PALFrameCountStart = tia.FrameCount
+			} else if tia.FrameCount-tia.PALFrameCountStart >= 20 {
+				fmt.Println("PAL!")
+				tia.setTVFormat(FormatPAL)
+			}
+		} else {
+			if tia.NTSCFrameCountStart == 0 {
+				tia.NTSCFrameCountStart = tia.FrameCount
+			} else if tia.FrameCount-tia.NTSCFrameCountStart >= 20 {
+				fmt.Println("NTSC!")
+				tia.setTVFormat(FormatNTSC)
+			}
+		}
+	}
+}
+
+func (tia *tia) hmove() {
+	tia.HMoveRequested = false
+	if tia.InHBlank {
+		// tia.HMoveCombEnabled = true
+		tia.P0.move(tia.P0.Vx)
+		tia.P1.move(tia.P1.Vx)
+		tia.M0.move(tia.M0.Vx)
+		tia.M1.move(tia.M1.Vx)
+		tia.BL.move(tia.BL.Vx)
+	} else {
+		// FIXME: right now I'm just assuming that anything
+		// that's HMOVEing early is trying the no-comb trick,
+		// which is not necessarily true...
+		tia.P0.move(tia.P0.Vx + 8)
+		tia.P1.move(tia.P1.Vx + 8)
+		tia.M0.move(tia.M0.Vx + 8)
+		tia.M1.move(tia.M1.Vx + 8)
+		tia.BL.move(tia.BL.Vx + 8)
+	}
+}
+
+func (tia *tia) computeColorAndUpdateCollision() byte {
+
+	blShow := tia.BL.Show
+	if tia.DelayGRBL {
+		blShow = tia.BL.LatchedShow
+	}
+
+	playfieldBit := tia.getPlayfieldBit()
+	ballBit := tia.getBallBit() && blShow
+	p0Bit := tia.getPlayerBit(&tia.P0, tia.DelayGRP0)
+	p1Bit := tia.getPlayerBit(&tia.P1, tia.DelayGRP1)
+	m0Bit := tia.getMissileBit(&tia.M0) && tia.M0.Show && !tia.HideM0
+	m1Bit := tia.getMissileBit(&tia.M1) && tia.M1.Show && !tia.HideM1
+
+	updateCollision := func(collision *bool, test bool) {
+		if test {
+			*collision = true
+		}
+	}
+
+	updateCollision(&tia.Collisions.BLPF, ballBit && playfieldBit)
+
+	updateCollision(&tia.Collisions.P0PF, p0Bit && playfieldBit)
+	updateCollision(&tia.Collisions.P0BL, p0Bit && ballBit)
+
+	updateCollision(&tia.Collisions.M0P0, m0Bit && p0Bit)
+	updateCollision(&tia.Collisions.M0P1, m0Bit && p1Bit)
+	updateCollision(&tia.Collisions.M0PF, m0Bit && playfieldBit)
+	updateCollision(&tia.Collisions.M0BL, m0Bit && ballBit)
+
+	updateCollision(&tia.Collisions.P1PF, p1Bit && playfieldBit)
+	updateCollision(&tia.Collisions.P1BL, p1Bit && ballBit)
+
+	updateCollision(&tia.Collisions.M1P0, m1Bit && p0Bit)
+	updateCollision(&tia.Collisions.M1P1, m1Bit && p1Bit)
+	updateCollision(&tia.Collisions.M1PF, m1Bit && playfieldBit)
+	updateCollision(&tia.Collisions.M1BL, m1Bit && ballBit)
+
+	updateCollision(&tia.Collisions.P0P1, p0Bit && p1Bit)
+	updateCollision(&tia.Collisions.M0M1, m0Bit && m1Bit)
+
+	drawPFBL := playfieldBit || ballBit
+	drawP0M0 := p0Bit || m0Bit
+	drawP1M1 := p1Bit || m1Bit
+
+	var colorLuma byte
+	if tia.PFAndBLHavePriority {
+		if drawPFBL {
+			colorLuma = tia.PlayfieldAndBallColorLuma
+		} else if drawP0M0 {
+			colorLuma = tia.P0.ColorLuma
+		} else if drawP1M1 {
+			colorLuma = tia.P1.ColorLuma
+		} else {
+			colorLuma = tia.BGColorLuma
+		}
+	} else {
+		if tia.PlayfieldScoreColorMode && playfieldBit {
+			if tia.ScreenX < 80 {
+				colorLuma = tia.P0.ColorLuma
+			} else {
+				colorLuma = tia.P1.ColorLuma
+			}
+		} else if drawP0M0 {
+			colorLuma = tia.P0.ColorLuma
+		} else if drawP1M1 {
+			colorLuma = tia.P1.ColorLuma
+		} else if drawPFBL {
+			colorLuma = tia.PlayfieldAndBallColorLuma
+		} else {
+			colorLuma = tia.BGColorLuma
+		}
+	}
+
+	return colorLuma
+}
+
 func (tia *tia) runCycle() {
 
 	if !tia.WasInVSync && tia.InVSync {
-		tia.WasInVSync = true
-		tia.flipRequested = true
-		tia.FrameCount++
-
-		if !tia.FormatSet {
-			if tia.ScreenY >= 263 {
-				if tia.PALFrameCountStart == 0 {
-					tia.PALFrameCountStart = tia.FrameCount
-				} else if tia.FrameCount-tia.PALFrameCountStart >= 20 {
-					fmt.Println("PAL!")
-					tia.setTVFormat(FormatPAL)
-				}
-			} else {
-				if tia.NTSCFrameCountStart == 0 {
-					tia.NTSCFrameCountStart = tia.FrameCount
-				} else if tia.FrameCount-tia.NTSCFrameCountStart >= 20 {
-					fmt.Println("NTSC!")
-					tia.setTVFormat(FormatNTSC)
-				}
-			}
-		}
+		tia.startVSync()
 	} else if tia.WasInVSync && !tia.InVSync {
 		tia.WasInVSync = false
 		// NOTE: Found PAL roms that expect less than 45 lines
@@ -373,13 +470,15 @@ func (tia *tia) runCycle() {
 		tia.ScreenY = -37
 	}
 
-	if !tia.WasInVBlank && tia.InVBlank {
-		tia.WasInVBlank = true
-		//fmt.Printf("Enter VBlank at %3d", tia.ScreenY)
-	} else if tia.WasInVBlank && !tia.InVBlank {
-		tia.WasInVBlank = false
-		//fmt.Println(" / Exit VBlank at", tia.ScreenY)
-	}
+	/*
+		if !tia.WasInVBlank && tia.InVBlank {
+			tia.WasInVBlank = true
+			fmt.Printf("Enter VBlank at %3d", tia.ScreenY)
+		} else if tia.WasInVBlank && !tia.InVBlank {
+			tia.WasInVBlank = false
+			fmt.Println(" / Exit VBlank at", tia.ScreenY)
+		}
+	*/
 
 	if tia.HideM0 {
 		tia.M0.lockMissileToPlayer(&tia.P0)
@@ -388,24 +487,7 @@ func (tia *tia) runCycle() {
 		tia.M1.lockMissileToPlayer(&tia.P1)
 	}
 	if tia.HMoveRequested {
-		tia.HMoveRequested = false
-		if tia.InHBlank {
-			// tia.HMoveCombEnabled = true
-			tia.P0.move(tia.P0.Vx)
-			tia.P1.move(tia.P1.Vx)
-			tia.M0.move(tia.M0.Vx)
-			tia.M1.move(tia.M1.Vx)
-			tia.BL.move(tia.BL.Vx)
-		} else {
-			// FIXME: right now I'm just assuming that anything
-			// that's HMOVEing early is trying the no-comb trick,
-			// which is not necessarily true...
-			tia.P0.move(tia.P0.Vx + 8)
-			tia.P1.move(tia.P1.Vx + 8)
-			tia.M0.move(tia.M0.Vx + 8)
-			tia.M1.move(tia.M1.Vx + 8)
-			tia.BL.move(tia.BL.Vx + 8)
-		}
+		tia.hmove()
 	}
 
 	if tia.ScreenX == 160 {
@@ -424,83 +506,10 @@ func (tia *tia) runCycle() {
 	}
 
 	if tia.ScreenX >= 0 && tia.ScreenX < 160 {
-
-		blShow := tia.BL.Show
-		if tia.DelayGRBL {
-			blShow = tia.BL.LatchedShow
-		}
-
-		playfieldBit := tia.getPlayfieldBit()
-		ballBit := tia.getBallBit() && blShow
-		p0Bit := tia.getPlayerBit(&tia.P0, tia.DelayGRP0)
-		p1Bit := tia.getPlayerBit(&tia.P1, tia.DelayGRP1)
-		m0Bit := tia.getMissileBit(&tia.M0) && tia.M0.Show && !tia.HideM0
-		m1Bit := tia.getMissileBit(&tia.M1) && tia.M1.Show && !tia.HideM1
-
-		updateCollision := func(collision *bool, test bool) {
-			if test {
-				*collision = true
-			}
-		}
-
+		colorLuma := byte(0)
 		if !tia.InVBlank && !tia.HMoveCombEnabled {
-			updateCollision(&tia.Collisions.BLPF, ballBit && playfieldBit)
-
-			updateCollision(&tia.Collisions.P0PF, p0Bit && playfieldBit)
-			updateCollision(&tia.Collisions.P0BL, p0Bit && ballBit)
-
-			updateCollision(&tia.Collisions.M0P0, m0Bit && p0Bit)
-			updateCollision(&tia.Collisions.M0P1, m0Bit && p1Bit)
-			updateCollision(&tia.Collisions.M0PF, m0Bit && playfieldBit)
-			updateCollision(&tia.Collisions.M0BL, m0Bit && ballBit)
-
-			updateCollision(&tia.Collisions.P1PF, p1Bit && playfieldBit)
-			updateCollision(&tia.Collisions.P1BL, p1Bit && ballBit)
-
-			updateCollision(&tia.Collisions.M1P0, m1Bit && p0Bit)
-			updateCollision(&tia.Collisions.M1P1, m1Bit && p1Bit)
-			updateCollision(&tia.Collisions.M1PF, m1Bit && playfieldBit)
-			updateCollision(&tia.Collisions.M1BL, m1Bit && ballBit)
-
-			updateCollision(&tia.Collisions.P0P1, p0Bit && p1Bit)
-			updateCollision(&tia.Collisions.M0M1, m0Bit && m1Bit)
+			colorLuma = tia.computeColorAndUpdateCollision()
 		}
-
-		drawPFBL := playfieldBit || ballBit
-		drawP0M0 := p0Bit || m0Bit
-		drawP1M1 := p1Bit || m1Bit
-
-		var colorLuma byte
-		if tia.InVBlank || tia.HMoveCombEnabled {
-			colorLuma = 0
-		} else if tia.PFAndBLHavePriority {
-			if drawPFBL {
-				colorLuma = tia.PlayfieldAndBallColorLuma
-			} else if drawP0M0 {
-				colorLuma = tia.P0.ColorLuma
-			} else if drawP1M1 {
-				colorLuma = tia.P1.ColorLuma
-			} else {
-				colorLuma = tia.BGColorLuma
-			}
-		} else {
-			if tia.PlayfieldScoreColorMode && playfieldBit {
-				if tia.ScreenX < 80 {
-					colorLuma = tia.P0.ColorLuma
-				} else {
-					colorLuma = tia.P1.ColorLuma
-				}
-			} else if drawP0M0 {
-				colorLuma = tia.P0.ColorLuma
-			} else if drawP1M1 {
-				colorLuma = tia.P1.ColorLuma
-			} else if drawPFBL {
-				colorLuma = tia.PlayfieldAndBallColorLuma
-			} else {
-				colorLuma = tia.BGColorLuma
-			}
-		}
-
 		if tia.ScreenY >= 0 && tia.ScreenY < 264 {
 			tia.drawColor(colorLuma)
 		}
@@ -508,7 +517,7 @@ func (tia *tia) runCycle() {
 
 	// NOTE: Load every four pixels is correct, but don't be surprised
 	// if what offset we do it at changes when other things are fixed...
-	if abs(tia.ScreenX)&3 == 3 {
+	if tia.ScreenX&3 == 3 {
 		tia.Playfield = tia.PlayfieldToLoad
 	}
 
