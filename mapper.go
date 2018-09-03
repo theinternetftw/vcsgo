@@ -8,8 +8,10 @@ import (
 type mapper interface {
 	read(mem *mem, addr uint16) byte
 	write(mem *mem, addr uint16, val byte)
+
 	getMapperNum() uint16
 	getBankNum() uint16
+
 	runCycle(emu *emuState)
 	init(emu *emuState)
 }
@@ -24,6 +26,10 @@ func unmarshalMapper(m marshalledMapper) (mapper, error) {
 	switch m.Number {
 	case 0x00:
 		mapper = &mapperUnknown{}
+	case 0x3f:
+		mapper = &mapper3F{}
+	case 0x66:
+		mapper = &mapper66{}
 	case 0xc0:
 		mapper = &mapperC0{}
 	case 0xdc:
@@ -93,12 +99,13 @@ type mapperUnknown struct{}
 
 func (m *mapperUnknown) read(mem *mem, addr uint16) byte {
 	maskedAddr := addr & 0xfff
-	if len(mem.rom) < 0x1000 {
+	romSize := len(mem.rom)
+	if romSize < 0x1000 {
 		// should be a power of two but let's handle weird homebrew bins
-		maskedAddr %= uint16(len(mem.rom))
-	} else if len(mem.rom) > 0x1000 {
+		maskedAddr %= uint16(romSize)
+	} else if romSize > 0x1000 {
 		// match those mappers that set some last chunk to the last bit of ROM
-		bankStart := uint16(len(mem.rom) - 0x1000)
+		bankStart := uint16(romSize - 0x1000)
 		return mem.rom[bankStart+maskedAddr]
 	}
 	return mem.rom[maskedAddr]
@@ -402,6 +409,8 @@ func makeMapperDC() mapper {
 	return &dpc{MapperF8: makeMapperF8NoSC()}
 }
 func (d *dpc) read(mem *mem, addr uint16) byte {
+	// TODO: add dpc mirrors at 0x1800 (p2 doesn't use it)
+	addr &= 0x1fff
 	if addr >= 0x1000 && addr <= 0x1003 {
 		return d.readLFSR()
 	} else if addr >= 0x1004 && addr <= 0x1007 {
@@ -427,6 +436,8 @@ func (d *dpc) read(mem *mem, addr uint16) byte {
 }
 
 func (d *dpc) write(mem *mem, addr uint16, val byte) {
+	// TODO: add dpc mirrors at 0x1800 (p2 doesn't use it)
+	addr &= 0x1fff
 	if addr >= 0x1040 && addr <= 0x1047 {
 		d.Ptrs[addr-0x1040].setShowStart(val)
 	} else if addr >= 0x1048 && addr <= 0x104f {
