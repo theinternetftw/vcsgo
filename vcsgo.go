@@ -157,44 +157,54 @@ func (emu *emuState) runCycles(cycles uint) {
 			emu.TIA.runCycle()
 			emu.APU.runCycle()
 		}
-
-		if emu.InputTimingPots {
-			diff := emu.Cycles - emu.InputTimingPotsStartCycles
-			scanlines := int16(diff / cpuCyclesPerScanline)
-			paddles, regs := []Paddle{
-				emu.Input.Paddle0, emu.Input.Paddle1,
-				emu.Input.Paddle2, emu.Input.Paddle3,
-			}, []*bool{
-				&emu.Paddle0InputCharged, &emu.Paddle1InputCharged,
-				&emu.Paddle2InputCharged, &emu.Paddle3InputCharged,
-			}
-			for i, paddle := range paddles {
-				scanLimit := paddlePosToScanlines(paddle.Position)
-				if scanlines >= scanLimit {
-					*regs[i] = true
-				}
-			}
-		}
-	}
-
-	if emu.LastPaddleFrameReset != emu.TIA.FrameCount {
-		emu.LastPaddleFrameReset = emu.TIA.FrameCount
-		emu.PaddleChecksLastFrame = emu.PaddleChecksThisFrame
-		emu.PaddleChecksThisFrame = 0
-		emu.JoystickButtonChecksLastFrame = emu.JoystickButtonChecksThisFrame
-		emu.JoystickButtonChecksThisFrame = 0
 	}
 
 	if emu.Input45LatchMode {
-		if emu.Input4LatchVal {
-			emu.Input4LatchVal = !emu.Input.JoyP0.Button
-		}
-		if emu.Input5LatchVal {
-			emu.Input5LatchVal = !emu.Input.JoyP1.Button
-		}
+		emu.handleLatchMode()
 	}
 
+	if emu.InputTimingPots {
+		emu.handlePotTiming()
+		emu.doPotHeuristics()
+	}
+}
+
+func (emu *emuState) handleLatchMode() {
+	if emu.Input4LatchVal {
+		emu.Input4LatchVal = !emu.Input.JoyP0.Button
+	}
+	if emu.Input5LatchVal {
+		emu.Input5LatchVal = !emu.Input.JoyP1.Button
+	}
+}
+
+func (emu *emuState) handlePotTiming() {
+	diff := emu.Cycles - emu.InputTimingPotsStartCycles
+	scanlines := int16(diff / cpuCyclesPerScanline)
+	paddles, regs := []Paddle{
+		emu.Input.Paddle0, emu.Input.Paddle1,
+		emu.Input.Paddle2, emu.Input.Paddle3,
+	}, []*bool{
+		&emu.Paddle0InputCharged, &emu.Paddle1InputCharged,
+		&emu.Paddle2InputCharged, &emu.Paddle3InputCharged,
+	}
+	for i, paddle := range paddles {
+		scanLimit := paddlePosToScanlines(paddle.Position)
+		if scanlines >= scanLimit {
+			*regs[i] = true
+		}
+	}
+}
+
+func (emu *emuState) doPotHeuristics() {
 	if !emu.InputPotsBeingUsed {
+		if emu.LastPaddleFrameReset != emu.TIA.FrameCount {
+			emu.LastPaddleFrameReset = emu.TIA.FrameCount
+			emu.PaddleChecksLastFrame = emu.PaddleChecksThisFrame
+			emu.PaddleChecksThisFrame = 0
+			emu.JoystickButtonChecksLastFrame = emu.JoystickButtonChecksThisFrame
+			emu.JoystickButtonChecksThisFrame = 0
+		}
 		fewChecksButNoJoy := emu.PaddleChecksLastFrame >= 20 && emu.JoystickButtonChecksLastFrame == 0
 		if fewChecksButNoJoy || emu.PaddleChecksLastFrame >= 60 {
 			emu.PaddleCodeFrames++
