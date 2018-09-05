@@ -459,7 +459,17 @@ func (tia *tia) computeColorAndUpdateCollision() byte {
 	return colorLuma
 }
 
-func (tia *tia) runCycle() {
+func (tia *tia) runThreeCycles() {
+
+	if tia.HideM0 {
+		tia.M0.lockMissileToPlayer(&tia.P0)
+	}
+	if tia.HideM1 {
+		tia.M1.lockMissileToPlayer(&tia.P1)
+	}
+	if tia.HMoveRequested {
+		tia.hmove()
+	}
 
 	if !tia.WasInVSync && tia.InVSync {
 		tia.startVSync()
@@ -480,46 +490,42 @@ func (tia *tia) runCycle() {
 		}
 	*/
 
-	if tia.HideM0 {
-		tia.M0.lockMissileToPlayer(&tia.P0)
-	}
-	if tia.HideM1 {
-		tia.M1.lockMissileToPlayer(&tia.P1)
-	}
-	if tia.HMoveRequested {
-		tia.hmove()
-	}
+	for i := 0; i < 3; i++ {
 
-	if tia.ScreenX == 160 {
-		tia.ScreenX = -68
-		tia.WaitForHBlank = false
-		tia.InHBlank = true
-		if tia.ScreenY++; tia.ScreenY > 275 {
-			// if a program doesn't vsync, lets just hang
-			// out here at the end of the screen...
-			tia.ScreenY = 275
+		if tia.ScreenX >= 0 && tia.ScreenX < 160 {
+
+			if tia.ScreenX == 0 {
+				tia.InHBlank = false
+			} else if tia.ScreenX == 8 {
+				tia.HMoveCombEnabled = false
+			}
+
+			colorLuma := byte(0)
+			if !tia.InVBlank && !tia.HMoveCombEnabled {
+				colorLuma = tia.computeColorAndUpdateCollision()
+			}
+
+			if tia.ScreenY >= 0 && tia.ScreenY < 264 {
+				tia.drawColor(colorLuma)
+			}
+
+		} else if tia.ScreenX == 160 {
+			tia.ScreenX = -68
+			tia.WaitForHBlank = false
+			tia.InHBlank = true
+			if tia.ScreenY++; tia.ScreenY > 275 {
+				// if a program doesn't vsync, lets just hang
+				// out here at the end of the screen...
+				tia.ScreenY = 275
+			}
 		}
-	} else if tia.ScreenX == 0 {
-		tia.InHBlank = false
-	} else if tia.ScreenX == 8 {
-		tia.HMoveCombEnabled = false
-	}
 
-	if tia.ScreenX >= 0 && tia.ScreenX < 160 {
-		colorLuma := byte(0)
-		if !tia.InVBlank && !tia.HMoveCombEnabled {
-			colorLuma = tia.computeColorAndUpdateCollision()
+		// NOTE: Load every four pixels is correct, but don't be surprised
+		// if what offset we do it at changes when other things are fixed...
+		if tia.ScreenX&3 == 3 {
+			tia.Playfield = tia.PlayfieldToLoad
 		}
-		if tia.ScreenY >= 0 && tia.ScreenY < 264 {
-			tia.drawColor(colorLuma)
-		}
-	}
 
-	// NOTE: Load every four pixels is correct, but don't be surprised
-	// if what offset we do it at changes when other things are fixed...
-	if tia.ScreenX&3 == 3 {
-		tia.Playfield = tia.PlayfieldToLoad
+		tia.ScreenX++
 	}
-
-	tia.ScreenX++
 }

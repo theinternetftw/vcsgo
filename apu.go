@@ -190,37 +190,39 @@ func (c *apuCircleBuf) mask(i uint) uint { return i & (uint(len(c.buf)) - 1) }
 func (c *apuCircleBuf) size() uint       { return c.writeIndex - c.readIndex }
 func (c *apuCircleBuf) full() bool       { return c.size() == uint(len(c.buf)) }
 
-func (apu *apu) runCycle() {
+func (apu *apu) runThreeCycles() {
 
-	if !apu.buffer.full() {
+	for i := 0; i < 3; i++ {
+		if !apu.buffer.full() {
 
-		apu.FreqClk++
-		if apu.FreqClk == 114 {
-			apu.runFreqCycle()
-			apu.FreqClk = 0
-		}
+			apu.FreqClk++
+			if apu.FreqClk == 114 {
+				apu.runFreqCycle()
+				apu.FreqClk = 0
+			}
 
-		c0 := apu.Channel0.Out * int(apu.Channel0.Volume)
-		c1 := apu.Channel1.Out * int(apu.Channel1.Volume)
+			c0 := apu.Channel0.Out * int(apu.Channel0.Volume)
+			c1 := apu.Channel1.Out * int(apu.Channel1.Volume)
 
-		apu.SampleSum += c0 + c1
-		apu.SampleSumCount++
-		if apu.SampleSumCount >= apu.ClocksPerSample {
+			apu.SampleSum += c0 + c1
+			apu.SampleSumCount++
+			if apu.SampleSumCount >= apu.ClocksPerSample {
 
-			sum := float32(apu.SampleSum) / 30.0 // 2 channels, 15 vol levels
+				sum := float32(apu.SampleSum) / 30.0 // 2 channels, 15 vol levels
 
-			output := sum / float32(apu.SampleSumCount)
+				output := sum / float32(apu.SampleSumCount)
 
-			apu.SampleSum = 0
-			apu.SampleSumCount = 0
+				apu.SampleSum = 0
+				apu.SampleSumCount = 0
 
-			sample := int16(output * 32767.0)
-			sampleLo := byte(sample & 0xff)
-			sampleHi := byte(sample >> 8)
-			apu.buffer.write([]byte{
-				sampleLo, sampleHi,
-				sampleLo, sampleHi,
-			})
+				sample := int16(output * 32767.0)
+				sampleLo := byte(sample & 0xff)
+				sampleHi := byte(sample >> 8)
+				apu.buffer.write([]byte{
+					sampleLo, sampleHi,
+					sampleLo, sampleHi,
+				})
+			}
 		}
 	}
 }

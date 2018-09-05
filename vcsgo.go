@@ -153,10 +153,8 @@ func (emu *emuState) runCycles(cycles uint) {
 		emu.Timer.runCycle()
 		emu.Mem.mapper.runCycle(emu)
 
-		for j := 0; j < 3; j++ {
-			emu.TIA.runCycle()
-			emu.APU.runCycle()
-		}
+		emu.TIA.runThreeCycles()
+		emu.APU.runThreeCycles()
 	}
 
 	if emu.Input45LatchMode {
