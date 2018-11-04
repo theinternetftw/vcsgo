@@ -1,9 +1,9 @@
 package main
 
 import (
+	"github.com/theinternetftw/glimmer"
 	"github.com/theinternetftw/vcsgo"
 	"github.com/theinternetftw/vcsgo/profiling"
-	"github.com/theinternetftw/vcsgo/platform"
 
 	"golang.org/x/mobile/event/key"
 
@@ -11,8 +11,6 @@ import (
 	"io/ioutil"
 	"os"
 	"time"
-
-	"runtime/debug"
 )
 
 func main() {
@@ -29,7 +27,7 @@ func main() {
 
 	screenW := 320
 	screenH := 264
-	platform.InitDisplayLoop("vcsgo", screenW*2, screenH*2, screenW, screenH, func(sharedState *platform.WindowState) {
+	glimmer.InitDisplayLoop("vcsgo", screenW*2, screenH*2, screenW, screenH, func(sharedState *glimmer.WindowState) {
 		startEmu(cartFilename, sharedState, emu)
 	})
 }
@@ -42,9 +40,11 @@ func clamp(min, x, max float32) float32 {
 	}
 	return x
 }
+
 type paddlePhys struct {
 	pos, vel float32
 }
+
 func (p *paddlePhys) move(dir, dt float32) {
 	const maxvel = 135 // degrees/s^2
 	if dir < 0 {
@@ -54,14 +54,14 @@ func (p *paddlePhys) move(dir, dt float32) {
 	} else {
 		p.vel = 0
 	}
-	p.pos += p.vel*dt
+	p.pos += p.vel * dt
 	p.pos = clamp(-135, p.pos, 135)
 }
-func (p *paddlePhys) left(dt float32) { p.move(-1, dt) }
-func (p *paddlePhys) right(dt float32) { p.move(1, dt) }
+func (p *paddlePhys) left(dt float32)   { p.move(-1, dt) }
+func (p *paddlePhys) right(dt float32)  { p.move(1, dt) }
 func (p *paddlePhys) noMove(dt float32) { p.move(0, dt) }
 
-func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator) {
+func startEmu(filename string, window *glimmer.WindowState, emu vcsgo.Emulator) {
 
 	// FIXME: settings are for debug right now
 	lastFlipTime := time.Now()
@@ -69,7 +69,7 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 
 	snapshotPrefix := filename + ".snapshot"
 
-	audio, err := platform.OpenAudioBuffer(4, 4096, 44100, 16, 2)
+	audio, err := glimmer.OpenAudioBuffer(4, 4096, 44100, 16, 2)
 	workingAudioBuffer := make([]byte, audio.BufferSize())
 	dieIf(err)
 
@@ -80,16 +80,13 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 	maxFDiff := 0.0
 	frameCount := 0
 
-	lastNumGC := int64(0)
-	gcStats := debug.GCStats{}
-
 	paddles := []paddlePhys{
 		paddlePhys{}, paddlePhys{},
 	}
 
-	frametimeGoal := map[vcsgo.TVFormat]float64 {
-		vcsgo.FormatNTSC: 1.0/60.0,
-		vcsgo.FormatPAL: 1.0/50.0,
+	frametimeGoal := map[vcsgo.TVFormat]float64{
+		vcsgo.FormatNTSC: 1.0 / 60.0,
+		vcsgo.FormatPAL:  1.0 / 50.0,
 	}[emu.GetTVFormat()]
 
 	snapshotMode := 'x'
@@ -112,7 +109,7 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 			{
 				window.CopyKeyCharArray(newInput.Keys[:])
 
-				cid := func (c key.Code) bool { return window.CodeIsDown(c) }
+				cid := func(c key.Code) bool { return window.CodeIsDown(c) }
 
 				newInput.ResetButton = cid(key.CodeF1)
 				newInput.SelectButton = cid(key.CodeF2)
@@ -184,7 +181,7 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 			}
 
 			if numDown > '0' && numDown <= '9' {
-				snapFilename := snapshotPrefix+string(numDown)
+				snapFilename := snapshotPrefix + string(numDown)
 				if snapshotMode == 'm' {
 					snapshotMode = 'x'
 					numDown = 'x'
@@ -226,25 +223,20 @@ func startEmu(filename string, window *platform.WindowState, emu vcsgo.Emulator)
 			window.RequestDraw()
 			window.Mutex.Unlock()
 
-			debug.ReadGCStats(&gcStats)
-			if gcStats.NumGC != lastNumGC {
-				lastNumGC = gcStats.NumGC
-				//fmt.Println("GC!")
-			}
 			frameCount++
-			if frameCount & 0xff == 0 {
+			if frameCount&0xff == 0 {
 				fmt.Printf("maxRTime %.4f, maxFTime %.4f\n", maxRDiff.Seconds(), maxFDiff)
 				maxRDiff = 0
 				maxFDiff = 0
 			}
 
-			if frameCount & 0x1f == 0 {
+			if frameCount&0x1f == 0 {
 				//fmt.Println("cmd-paddlePos", paddle0Position)
 			}
 
 			rDiff := time.Now().Sub(lastFlipTime)
-			const accuracyProtection = 2*time.Millisecond
-			ftGoalAsDuration := time.Duration(frametimeGoal*1000)*time.Millisecond
+			const accuracyProtection = 2 * time.Millisecond
+			ftGoalAsDuration := time.Duration(frametimeGoal*1000) * time.Millisecond
 			maxSleep := ftGoalAsDuration - accuracyProtection
 			toSleep := maxSleep - rDiff
 			if toSleep > accuracyProtection {
