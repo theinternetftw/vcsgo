@@ -347,14 +347,14 @@ func (tia *tia) startVSync() {
 			if tia.PALFrameCountStart == 0 {
 				tia.PALFrameCountStart = tia.FrameCount
 			} else if tia.FrameCount-tia.PALFrameCountStart >= 20 {
-				fmt.Println("PAL!")
+				fmt.Println("Detected PAL!")
 				tia.setTVFormat(FormatPAL)
 			}
 		} else {
 			if tia.NTSCFrameCountStart == 0 {
 				tia.NTSCFrameCountStart = tia.FrameCount
 			} else if tia.FrameCount-tia.NTSCFrameCountStart >= 20 {
-				fmt.Println("NTSC!")
+				fmt.Println("Detected NTSC!")
 				tia.setTVFormat(FormatNTSC)
 			}
 		}
@@ -475,6 +475,14 @@ func (tia *tia) runThreeCycles() {
 		tia.startVSync()
 	} else if tia.WasInVSync && !tia.InVSync {
 		tia.WasInVSync = false
+
+		// blank rest of screen
+		for y := tia.ScreenY; y < 264; y++ {
+			for x := tia.ScreenX; x < 160; x++ {
+				tia.drawRGB(x, y, 0, 0, 0)
+			}
+		}
+
 		// NOTE: Found PAL roms that expect less than 45 lines
 		// of upper border, so leaving this as is for now.
 		tia.ScreenY = -37
