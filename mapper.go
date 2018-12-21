@@ -405,6 +405,16 @@ func (d *dpc) readLFSR() byte {
 	return val
 }
 
+var warnOnceMap = map[string]bool{}
+
+func warnOnce(msg string) {
+	if _, ok := warnOnceMap[msg]; ok {
+		return
+	}
+	warnOnceMap[msg] = true
+	fmt.Println(msg)
+}
+
 func makeMapperDC() mapper {
 	return &dpc{MapperF8: makeMapperF8NoSC()}
 }
@@ -420,15 +430,15 @@ func (d *dpc) read(mem *mem, addr uint16) byte {
 	} else if addr >= 0x1010 && addr <= 0x1017 {
 		return d.Ptrs[addr-0x1010].readMasked(mem)
 	} else if addr >= 0x1018 && addr <= 0x101F {
-		fmt.Println("DPC - 0x1018 NOT IMPL!")
+		warnOnce("DPC - 0x1018 NOT IMPL!")
 	} else if addr >= 0x1020 && addr <= 0x1027 {
-		fmt.Println("DPC - 0x1020 NOT IMPL!")
+		warnOnce("DPC - 0x1020 NOT IMPL!")
 	} else if addr >= 0x1028 && addr <= 0x102F {
-		fmt.Println("DPC - 0x1028 NOT IMPL!")
+		warnOnce("DPC - 0x1028 NOT IMPL!")
 	} else if addr >= 0x1030 && addr <= 0x1037 {
-		fmt.Println("DPC - 0x1030 NOT IMPL!")
+		warnOnce("DPC - 0x1030 NOT IMPL!")
 	} else if addr >= 0x1038 && addr <= 0x103f {
-		fmt.Println("DPC - 0x1038 NOT IMPL!")
+		warnOnce("DPC - 0x1038 NOT IMPL!")
 	} else if addr >= 0x1070 && addr <= 0x1077 {
 		d.LFSR = 0
 	}
@@ -451,7 +461,7 @@ func (d *dpc) write(mem *mem, addr uint16, val byte) {
 		d.Ptrs[addr-0x1058].MusicMode = val&0x10 != 0 || val&0x20 != 0
 	} else if addr >= 0x1060 && addr <= 0x1067 {
 		if val != 0 {
-			fmt.Println("DPC - 0x1060 NOT IMPL!")
+			warnOnce("DPC - 0x1060 NOT IMPL!")
 		}
 	} else if addr >= 0x1068 && addr <= 0x106f {
 		// not used
