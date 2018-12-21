@@ -14,6 +14,8 @@ type Emulator interface {
 
 	SetInput(input Input)
 
+	SetDebugContinue(b bool)
+
 	GetTVFormat() TVFormat
 }
 
@@ -28,7 +30,6 @@ const (
 )
 
 // Input covers all outside info sent to the Emulator
-// TODO: add dt?
 type Input struct {
 	// Keys is a bool array of keydown state
 	Keys [256]bool
@@ -84,9 +85,12 @@ func (emu *emuState) LoadSnapshot(snapBytes []byte) (Emulator, error) {
 	return emu.loadSnapshot(snapBytes)
 }
 
-// Framebuffer returns the current state of the screen
 func (emu *emuState) Framebuffer() []byte {
 	return emu.framebuffer()
+}
+
+func (emu *emuState) SetDebugContinue(b bool) {
+	emu.DebugContinue = b
 }
 
 // FlipRequested indicates if a draw request is pending
@@ -101,4 +105,11 @@ func (emu *emuState) Step() {
 
 func (emu *emuState) GetTVFormat() TVFormat {
 	return emu.TIA.TVFormat
+}
+
+// ReadSoundBuffer returns a 44100hz * 16bit * 2ch sound buffer.
+// A pre-sized buffer must be provided, which is returned resized
+// if the buffer was less full than the length requested.
+func (emu *emuState) ReadSoundBuffer(toFill []byte) []byte {
+	return emu.APU.readSoundBuffer(toFill)
 }

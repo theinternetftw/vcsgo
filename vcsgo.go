@@ -416,13 +416,6 @@ func (emu *emuState) reset() {
 	emu.CPU.RESET = true
 }
 
-// ReadSoundBuffer returns a 44100hz * 16bit * 2ch sound buffer.
-// A pre-sized buffer must be provided, which is returned resized
-// if the buffer was less full than the length requested.
-func (emu *emuState) ReadSoundBuffer(toFill []byte) []byte {
-	return emu.APU.buffer.read(toFill)
-}
-
 func initEmuState(emu *emuState, cart []byte) {
 	*emu = emuState{
 		Mem: mem{
