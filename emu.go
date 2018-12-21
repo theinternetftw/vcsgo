@@ -17,6 +17,9 @@ type Emulator interface {
 	SetDebugContinue(b bool)
 
 	GetTVFormat() TVFormat
+
+	SetDevMode(b bool)
+	InDevMode() bool
 }
 
 // TVFormat is for PAL/NTSC determination
@@ -73,8 +76,8 @@ func (emu *emuState) SetInput(input Input) {
 }
 
 // NewEmulator creates an emulation session
-func NewEmulator(cart []byte) Emulator {
-	return newState(cart)
+func NewEmulator(cart []byte, devMode bool) Emulator {
+	return newState(cart, devMode)
 }
 
 func (emu *emuState) MakeSnapshot() []byte {

@@ -80,7 +80,12 @@ type emuState struct {
 	EverSelectedKeypad1 bool
 
 	Cycles uint64
+
+	devMode bool
 }
+
+func (emu *emuState) SetDevMode(b bool) { emu.devMode = b }
+func (emu *emuState) InDevMode() bool   { return emu.devMode }
 
 type timer struct {
 	Val                            byte
@@ -416,7 +421,7 @@ func (emu *emuState) reset() {
 	emu.CPU.RESET = true
 }
 
-func initEmuState(emu *emuState, cart []byte) {
+func initEmuState(emu *emuState, cart []byte, devMode bool) {
 	*emu = emuState{
 		Mem: mem{
 			mapper: loadMapperFromRomInfo(cart),
@@ -437,8 +442,10 @@ func initEmuState(emu *emuState, cart []byte) {
 			Palette:       ntscPalette,
 			M0:            sprite{Size: 1},
 			M1:            sprite{Size: 1},
-			ShowDebugPuck: true,
+			ShowDebugPuck: devMode,
 		},
+		devMode:       devMode,
+		DebugContinue: !devMode,
 	}
 
 	emu.CPU = virt6502.Virt6502{
@@ -458,18 +465,22 @@ func initEmuState(emu *emuState, cart []byte) {
 	emu.Mem.mapper.init(emu)
 }
 
-func newState(cart []byte) *emuState {
+func newState(cart []byte, devMode bool) *emuState {
 	var emu emuState
 
-	initEmuState(&emu, cart)
-	fmt.Println("ROM Size:", len(emu.Mem.rom))
-	fmt.Printf("Mapper: 0x%02x\n", emu.Mem.mapper.getMapperNum())
+	initEmuState(&emu, cart, devMode)
+
+	if devMode {
+		fmt.Println("ROM Size:", len(emu.Mem.rom))
+		fmt.Printf("Mapper: 0x%02x\n", emu.Mem.mapper.getMapperNum())
+	}
 
 	tvFormat := discoverTVFormat(&emu)
-	// start fresh with correct format
-	initEmuState(&emu, cart)
-	emu.TIA.setTVFormat(tvFormat)
 	fmt.Println()
+
+	// start fresh with correct format
+	initEmuState(&emu, cart, devMode)
+	emu.TIA.setTVFormat(tvFormat)
 
 	return &emu
 }

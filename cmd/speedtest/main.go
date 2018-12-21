@@ -20,7 +20,7 @@ func main() {
 	cartBytes, err := ioutil.ReadFile(cartFilename)
 	dieIf(err)
 
-	emu := vcsgo.NewEmulator(cartBytes)
+	emu := vcsgo.NewEmulator(cartBytes, false)
 	emu.SetDebugContinue(true)
 
 	testSpeed(emu)

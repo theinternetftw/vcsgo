@@ -23,13 +23,20 @@ func main() {
 	cartBytes, err := ioutil.ReadFile(cartFilename)
 	dieIf(err)
 
-	emu := vcsgo.NewEmulator(cartBytes)
+	devMode := fileExists("devmode")
+
+	emu := vcsgo.NewEmulator(cartBytes, devMode)
 
 	screenW := 320
 	screenH := 264
 	glimmer.InitDisplayLoop("vcsgo", screenW*2, screenH*2, screenW, screenH, func(sharedState *glimmer.WindowState) {
 		startEmu(cartFilename, sharedState, emu)
 	})
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
 }
 
 func clamp(min, x, max float32) float32 {
@@ -225,7 +232,9 @@ func startEmu(filename string, window *glimmer.WindowState, emu vcsgo.Emulator) 
 
 			frameCount++
 			if frameCount&0xff == 0 {
-				fmt.Printf("maxRTime %.4f, maxFTime %.4f\n", maxRDiff.Seconds(), maxFDiff)
+				if emu.InDevMode() {
+					fmt.Printf("maxRTime %.4f, maxFTime %.4f\n", maxRDiff.Seconds(), maxFDiff)
+				}
 				maxRDiff = 0
 				maxFDiff = 0
 			}
