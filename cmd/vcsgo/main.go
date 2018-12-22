@@ -5,8 +5,6 @@ import (
 	"github.com/theinternetftw/vcsgo"
 	"github.com/theinternetftw/vcsgo/profiling"
 
-	"golang.org/x/mobile/event/key"
-
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -116,58 +114,58 @@ func startEmu(filename string, window *glimmer.WindowState, emu vcsgo.Emulator) 
 			{
 				window.CopyKeyCharArray(newInput.Keys[:])
 
-				cid := func(c key.Code) bool { return window.CodeIsDown(c) }
+				cid := func(c glimmer.KeyCode) bool { return window.CodeIsDown(c) }
 
-				newInput.ResetButton = cid(key.CodeF1)
-				newInput.SelectButton = cid(key.CodeF2)
+				newInput.ResetButton = cid(glimmer.CodeF1)
+				newInput.SelectButton = cid(glimmer.CodeF2)
 
-				newInput.JoyP0.Up = cid(key.CodeW)
-				newInput.JoyP0.Down = cid(key.CodeS)
-				newInput.JoyP0.Left = cid(key.CodeA)
-				newInput.JoyP0.Right = cid(key.CodeD)
-				newInput.JoyP0.Button = cid(key.CodeJ)
+				newInput.JoyP0.Up = cid(glimmer.CodeW)
+				newInput.JoyP0.Down = cid(glimmer.CodeS)
+				newInput.JoyP0.Left = cid(glimmer.CodeA)
+				newInput.JoyP0.Right = cid(glimmer.CodeD)
+				newInput.JoyP0.Button = cid(glimmer.CodeJ)
 
 				// TODO: switch between input methods (arg switch, plus
 				//  about 20 MD5s for the games that use paddles)
-				if cid(key.CodeA) {
+				if cid(glimmer.CodeA) {
 					paddles[0].left(inputDt)
-				} else if cid(key.CodeD) {
+				} else if cid(glimmer.CodeD) {
 					paddles[0].right(inputDt)
 				} else {
 					paddles[0].noMove(inputDt)
 				}
-				newInput.Paddle0.Button = window.CodeIsDown(key.CodeJ)
+				newInput.Paddle0.Button = window.CodeIsDown(glimmer.CodeJ)
 				newInput.Paddle0.Position = int16(paddles[0].pos)
 
 				newInput.Keypad0 = [12]bool{
-					cid(key.Code1), cid(key.Code2), cid(key.Code3),
-					cid(key.CodeQ), cid(key.CodeW), cid(key.CodeE),
-					cid(key.CodeA), cid(key.CodeS), cid(key.CodeD),
-					cid(key.CodeZ), cid(key.CodeX), cid(key.CodeC),
+					cid(glimmer.Code1), cid(glimmer.Code2), cid(glimmer.Code3),
+					cid(glimmer.CodeQ), cid(glimmer.CodeW), cid(glimmer.CodeE),
+					cid(glimmer.CodeA), cid(glimmer.CodeS), cid(glimmer.CodeD),
+					cid(glimmer.CodeZ), cid(glimmer.CodeX), cid(glimmer.CodeC),
 				}
 
 				newInput.Keypad1 = [12]bool{
-					cid(key.Code4), cid(key.Code5), cid(key.Code6),
-					cid(key.CodeR), cid(key.CodeT), cid(key.CodeY),
-					cid(key.CodeF), cid(key.CodeG), cid(key.CodeH),
-					cid(key.CodeV), cid(key.CodeB), cid(key.CodeN),
+					cid(glimmer.Code4), cid(glimmer.Code5), cid(glimmer.Code6),
+					cid(glimmer.CodeR), cid(glimmer.CodeT), cid(glimmer.CodeY),
+					cid(glimmer.CodeF), cid(glimmer.CodeG), cid(glimmer.CodeH),
+					cid(glimmer.CodeV), cid(glimmer.CodeB), cid(glimmer.CodeN),
 				}
 
-				if window.CodeIsDown(key.CodeLeftArrow) {
+				if window.CodeIsDown(glimmer.CodeLeftArrow) {
 					paddles[1].left(inputDt)
-				} else if window.CodeIsDown(key.CodeRightArrow) {
+				} else if window.CodeIsDown(glimmer.CodeRightArrow) {
 					paddles[1].right(inputDt)
 				} else {
 					paddles[1].noMove(inputDt)
 				}
-				newInput.Paddle1.Button = window.CodeIsDown(key.CodeSpacebar)
+				newInput.Paddle1.Button = window.CodeIsDown(glimmer.CodeSpacebar)
 				newInput.Paddle1.Position = int16(paddles[1].pos)
 
-				newInput.JoyP1.Up = window.CodeIsDown(key.CodeUpArrow)
-				newInput.JoyP1.Down = window.CodeIsDown(key.CodeDownArrow)
-				newInput.JoyP1.Left = window.CodeIsDown(key.CodeLeftArrow)
-				newInput.JoyP1.Right = window.CodeIsDown(key.CodeRightArrow)
-				newInput.JoyP1.Button = window.CodeIsDown(key.CodeSpacebar)
+				newInput.JoyP1.Up = window.CodeIsDown(glimmer.CodeUpArrow)
+				newInput.JoyP1.Down = window.CodeIsDown(glimmer.CodeDownArrow)
+				newInput.JoyP1.Left = window.CodeIsDown(glimmer.CodeLeftArrow)
+				newInput.JoyP1.Right = window.CodeIsDown(glimmer.CodeRightArrow)
+				newInput.JoyP1.Button = window.CodeIsDown(glimmer.CodeSpacebar)
 			}
 			window.Mutex.Unlock()
 
