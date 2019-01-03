@@ -12,23 +12,19 @@ My other emulators:
  * Glitches are moderately rare!
  * Graphical and auditory cross-platform support!
 
-That last bit relies on [glimmer](https://github.com/theinternetftw/glimmer). Let me know if it fails on your platform.
-
-Tested on windows 10 and ubuntu 18.10.
+That last bit relies on [glimmer](https://github.com/theinternetftw/glimmer). Tested on windows 10 and ubuntu 18.10.
 
 #### Dependencies:
 
-You can compile on windows with no C dependencies.
-
-Linux users should 'apt install libasound2-dev' or equivalent.
-
-FreeBSD (and Mac?) users should 'pkg install openal-soft' or equivalent.
+ * You can compile on windows with no C dependencies.
+ * Linux users should 'apt install libasound2-dev' or equivalent.
+ * FreeBSD (and Mac?) users should 'pkg install openal-soft' or equivalent.
 
 #### Compile instructions
 
-If you have go version >= 1.11, `go build ./cmd/vcsgo` should be enough. The interested can also see my build script `b` for profiling and such.
-
-Non-windows users will need the dependencies listed above.
+ * If you have go version >= 1.11, `go build ./cmd/vcsgo` should be enough.
+ * The interested can also see my build script `b` for profiling and such.
+ * Non-windows users will need the dependencies listed above.
 
 #### Important Notes:
 
