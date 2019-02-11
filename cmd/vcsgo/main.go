@@ -68,22 +68,13 @@ func (p *paddlePhys) noMove(dt float32) { p.move(0, dt) }
 
 func startEmu(filename string, window *glimmer.WindowState, emu vcsgo.Emulator) {
 
-	// FIXME: settings are for debug right now
-	lastFlipTime := time.Now()
 	lastInputPollTime := time.Now()
 
 	snapshotPrefix := filename + ".snapshot"
 
-	audio, err := glimmer.OpenAudioBuffer(1, 8192, 44100, 16, 2)
+	audio, err := glimmer.OpenAudioBuffer(2, 8192, 44100, 16, 2)
 	workingAudioBuffer := make([]byte, audio.BufferSize())
 	dieIf(err)
-
-	timer := time.NewTimer(0)
-	<-timer.C
-
-	maxRDiff := time.Duration(0)
-	maxFDiff := 0.0
-	frameCount := 0
 
 	paddles := []paddlePhys{
 		paddlePhys{}, paddlePhys{},
@@ -93,6 +84,8 @@ func startEmu(filename string, window *glimmer.WindowState, emu vcsgo.Emulator) 
 		vcsgo.FormatNTSC: 1.0 / 60.0,
 		vcsgo.FormatPAL:  1.0 / 50.0,
 	}[emu.GetTVFormat()]
+
+	frameTimer := glimmer.MakeFrameTimer(frametimeGoal)
 
 	snapshotMode := 'x'
 
@@ -110,7 +103,7 @@ func startEmu(filename string, window *glimmer.WindowState, emu vcsgo.Emulator) 
 			inputDt := float32(inputDiff.Seconds())
 			newInput = vcsgo.Input{}
 
-			window.Mutex.Lock()
+			window.InputMutex.Lock()
 			{
 				window.CopyKeyCharArray(newInput.Keys[:])
 
@@ -167,7 +160,7 @@ func startEmu(filename string, window *glimmer.WindowState, emu vcsgo.Emulator) 
 				newInput.JoyP1.Right = window.CodeIsDown(glimmer.CodeRightArrow)
 				newInput.JoyP1.Button = window.CodeIsDown(glimmer.CodeSpacebar)
 			}
-			window.Mutex.Unlock()
+			window.InputMutex.Unlock()
 
 			lastInputPollTime = time.Now()
 
@@ -223,46 +216,15 @@ func startEmu(filename string, window *glimmer.WindowState, emu vcsgo.Emulator) 
 		audio.Write(emu.ReadSoundBuffer(audioBufSlice))
 
 		if emu.FlipRequested() {
-			window.Mutex.Lock()
+			window.RenderMutex.Lock()
 			copy(window.Pix, emu.Framebuffer())
 			window.RequestDraw()
-			window.Mutex.Unlock()
+			window.RenderMutex.Unlock()
 
-			frameCount++
-			if frameCount&0xff == 0 {
-				if emu.InDevMode() {
-					fmt.Printf("maxRTime %.4f, maxFTime %.4f\n", maxRDiff.Seconds(), maxFDiff)
-				}
-				maxRDiff = 0
-				maxFDiff = 0
+			frameTimer.WaitForFrametime()
+			if emu.InDevMode() {
+				frameTimer.PrintStatsEveryXFrames(60*5)
 			}
-
-			if frameCount&0x1f == 0 {
-				//fmt.Println("cmd-paddlePos", paddle0Position)
-			}
-
-			rDiff := time.Now().Sub(lastFlipTime)
-			const accuracyProtection = 2 * time.Millisecond
-			ftGoalAsDuration := time.Duration(frametimeGoal*1000) * time.Millisecond
-			maxSleep := ftGoalAsDuration - accuracyProtection
-			toSleep := maxSleep - rDiff
-			if toSleep > accuracyProtection {
-				timer.Reset(toSleep)
-				<-timer.C
-			}
-
-			fDiff := 0.0
-			for fDiff < frametimeGoal-0.0005 { // seems to be about 0.0005 resolution? so leave a bit of play
-				fDiff = time.Now().Sub(lastFlipTime).Seconds()
-			}
-			if rDiff > maxRDiff {
-				maxRDiff = rDiff
-			}
-			if fDiff > maxFDiff {
-				maxFDiff = fDiff
-			}
-
-			lastFlipTime = time.Now()
 		}
 	}
 }

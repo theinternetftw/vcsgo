@@ -146,7 +146,7 @@ func (s *sound) run9BitPoly() int {
 }
 
 const (
-	amountGenerateAhead = 16 * 512 * 4 // must be power of 2
+	amountGenerateAhead = 16 * 512 * 2 // must be power of 2
 	samplesPerSecond    = 44100
 	timePerSample       = 1.0 / samplesPerSecond
 )
