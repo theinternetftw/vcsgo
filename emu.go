@@ -11,6 +11,7 @@ type Emulator interface {
 	FlipRequested() bool
 
 	ReadSoundBuffer([]byte) []byte
+	GetSoundBufferUsed() int
 
 	SetInput(input Input)
 
@@ -115,4 +116,8 @@ func (emu *emuState) GetTVFormat() TVFormat {
 // if the buffer was less full than the length requested.
 func (emu *emuState) ReadSoundBuffer(toFill []byte) []byte {
 	return emu.APU.readSoundBuffer(toFill)
+}
+
+func (emu *emuState) GetSoundBufferUsed() int {
+	return int(emu.APU.buffer.size())
 }
