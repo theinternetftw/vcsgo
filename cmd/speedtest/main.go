@@ -58,4 +58,3 @@ func dieIf(err error) {
 		os.Exit(1)
 	}
 }
-

@@ -67,11 +67,11 @@ func (emu *emuState) convertLatestSnapshot(snap *snapshot) (*emuState, error) {
 
 var snapshotConverters = map[int]func(map[string]interface{}) error{
 
-// If new field can be zero, no need for converter.
+	// If new field can be zero, no need for converter.
 
-// Converters should look like this (including comment):
-// added 2017-XX-XX
-// 1: convertSnap0To1,
+	// Converters should look like this (including comment):
+	// added 2017-XX-XX
+	// 1: convertSnap0To1,
 }
 
 func (emu *emuState) convertOldSnapshot(snap *snapshot) (*emuState, error) {
